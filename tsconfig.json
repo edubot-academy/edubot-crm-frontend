@@ -25,6 +25,9 @@
       ],
       "@/pages/*": [
         "src/pages/*"
+      ],
+      "@/components/ui/*": [
+        "src/components/ui/*"
       ]
     }
   },

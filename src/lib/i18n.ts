@@ -48,6 +48,6 @@ export const t = {
     toast: {
         errorGeneric: 'Ката кетти. Кийинчерээк аракет кылыңыз.',
         forbidden: 'Уруксат жок',
-        unauthorized: 'Кайра кириңиз (сессия бүттү)',
+        unauthorized: 'Кайра кириңиз (сессия бүттү)'
     }
 };

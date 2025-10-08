@@ -1,4 +1,4 @@
-module.exports = {
+export default {
     content: [
         "./index.html",
         "./src/**/*.{ts,tsx}"
@@ -15,9 +15,5 @@ module.exports = {
             },
         },
     },
-    plugins: [
-        require('@tailwindcss/forms'),
-        require('@tailwindcss/typography'),
-        require('@tailwindcss/aspect-ratio'),
-    ],
+    plugins: [],
 }
