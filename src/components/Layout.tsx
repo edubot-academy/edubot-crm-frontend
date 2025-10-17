@@ -2,11 +2,14 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { tokenStore } from '@/lib/storage';
 import { t } from '@/lib/i18n';
 import { Users, LayoutDashboard } from 'lucide-react';
+import { currentUser } from '@/lib/auth';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
     const loc = useLocation();
     const nav = useNavigate();
+    const me = currentUser();
     const isActive = (p: string) => loc.pathname.startsWith(p);
+    console.log(me);
     return (
         <div className="min-h-screen grid grid-cols-[240px_1fr] bg-gray-50 text-gray-900">
             <aside className="h-screen sticky top-0 border-r bg-white">
@@ -21,6 +24,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <Link to="/contacts" className={`flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 ${isActive('/contacts') ? 'bg-gray-50' : ''}`}>
                         <Users size={16} /> {t.nav.contacts}
                     </Link>
+                    {me?.role === 'manager' || me?.role === 'superadmin' && (
+                        <Link to="/admin" className={`flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 ${isActive('/admin') ? 'bg-gray-50' : ''}`}>
+                            <Users size={16} /> {t.nav.admin}
+                        </Link>
+                    )}
                 </nav>
                 <div className="absolute bottom-3 left-2 right-2">
                     <button

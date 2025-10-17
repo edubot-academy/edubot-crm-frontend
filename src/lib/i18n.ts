@@ -15,6 +15,7 @@ export const t = {
         contacts: 'Лиддер',
         dashboard: 'Башкы бет',
         kpis: 'Показателдер',
+        admin: 'Админ',
     },
     contacts: {
         title: 'Лиддер тизмеси',

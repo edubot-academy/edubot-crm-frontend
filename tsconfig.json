@@ -28,6 +28,9 @@
       ],
       "@/components/ui/*": [
         "src/components/ui/*"
+      ],
+      "@/auth/*": [
+        "src/auth/*"
       ]
     }
   },
