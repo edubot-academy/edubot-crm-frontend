@@ -1,7 +1,7 @@
 import { tokenStore } from "./storage";
 
 export type Role = 'sales' | 'assistant' | 'manager' | 'superadmin';
-export type Me = { sub: number; email: string; role: Role; fullName?: string };
+export type Me = { sub: number; email: string; role: Role; fullName?: string; id: number; };
 
 export function parseJwt<T = any>(token?: string | null): T | null {
     if (!token) return null;

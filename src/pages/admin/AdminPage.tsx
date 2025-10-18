@@ -281,7 +281,7 @@ export default function AdminPage() {
                                                 {u.invitedAt && (
                                                     <SubtleButton onClick={() => resendInvite(u.id)}>Чакыруу (кайра)</SubtleButton>
                                                 )}
-                                                {u.isActive ? (
+                                                {u.id !== user?.id && (u.isActive ? (
                                                     <GhostButton
                                                         onClick={() => openConfirm(u, false)}
                                                         disabled={!allowed}
@@ -297,7 +297,7 @@ export default function AdminPage() {
                                                     >
                                                         Активдештирүү
                                                     </GhostButton>
-                                                )}
+                                                ))}
                                             </td>
                                         </tr>
                                     );

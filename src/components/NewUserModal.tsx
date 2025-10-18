@@ -96,7 +96,7 @@ export default function NewUserModal({ open, onClose, onCreated, currentUserRole
                 <div className="rounded-2xl border bg-white shadow-xl">
                     <div className="px-4 py-3 border-b flex items-center justify-between">
                         <h2 className="font-semibold">{success ? 'Чакыруу түзүлдү' : 'Жаңы колдонуучу кошуу'}</h2>
-                        <button className="btn btn-ghost" onClick={onClose}>Жабуу</button>
+                        <button className="btn btn-ghost" onClick={onClose}>X</button>
                     </div>
 
                     <div className="p-4">

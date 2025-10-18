@@ -99,7 +99,7 @@ export default function NewLeadModal({ open, onClose, onCreated }: Props) {
                 <div className="rounded-2xl border bg-white shadow-xl">
                     <div className="px-4 py-3 border-b flex items-center justify-between">
                         <h2 className="font-semibold">Жаңы лид кошуу</h2>
-                        <button className="btn btn-ghost" onClick={onClose}>Жабуу</button>
+                        <button className="btn btn-ghost" onClick={onClose}>X</button>
                     </div>
                     <div className="p-4">
                         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">

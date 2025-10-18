@@ -9,6 +9,7 @@ import { JSX } from 'react';
 import AdminPage from '@/pages/admin/AdminPage';
 import RequireRole from '@/auth/RequireRole';
 import { UserRole } from '@/auth/user-role';
+import AcceptInvitePage from '@/pages/AcceptInvitePage';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const me = currentUser();
@@ -30,6 +31,7 @@ export default function App() {
                   <Route index element={<Navigate to="contacts" replace />} />
                   <Route path="contacts" element={<ContactsPage />} />
                   <Route path="contacts/:id" element={<ContactDetailPage />} />
+                  <Route path="accept-invite" element={<AcceptInvitePage />} />
                   <Route
                     path="/admin"
                     element={
