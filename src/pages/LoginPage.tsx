@@ -42,7 +42,9 @@ export default function LoginPage() {
                     <div className="p-8 md:p-10 space-y-8">
                         {/* Brand */}
                         <div className="text-center space-y-2">
-                            <div className="mx-auto h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-blue-600 shadow-sm" />
+                            <div className="mx-auto h-14 w-14 rounded-xl">
+                                <img src="/edubot-logo.svg" alt="Edubot CRM" />
+                            </div>
                             <div>
                                 <h1 className="text-2xl font-bold tracking-tight">EduBot CRM</h1>
                                 <p className="text-sm text-gray-500 mt-1">Сатуулар панелине кирүү</p>

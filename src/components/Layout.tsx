@@ -14,7 +14,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="min-h-screen grid grid-cols-[240px_1fr] bg-gray-50 text-gray-900">
             <aside className="h-screen sticky top-0 border-r bg-white">
                 <div className="container-lg h-14 flex items-center gap-2">
-                    <div className="h-7 w-7 rounded-md bg-gradient-to-br from-emerald-500 to-blue-600" />
+                    <div className="h-14 w-14 rounded-xl">
+                        <img src="/edubot-logo.svg" alt="Edubot CRM" />
+                    </div>
                     <span className="font-semibold">EduBot CRM</span>
                 </div>
                 <nav className="px-2 py-2 space-y-1 text-sm">
