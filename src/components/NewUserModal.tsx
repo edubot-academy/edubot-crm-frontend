@@ -74,16 +74,40 @@ export default function NewUserModal({ open, onClose, onCreated, currentUserRole
                 email: values.email.trim(),
                 role: values.role,
             };
+
             const { data } = await api.post<InviteRes>('/users', payload);
+
             setSuccess(data);
             onCreated?.(data);
-            toast.push({ title: 'OK', message: 'Колдонуучу кошулду жана чакыруу жиберилди.' });
+
+            toast.push({
+                title: 'OK',
+                message: 'Колдонуучу кошулду жана чакыруу жиберилди.',
+                variant: 'success',
+            });
+
             reset();
         } catch (err: any) {
-            const msg = err?.response?.data?.message || 'Кошууда ката кетти.';
-            toast.push({ title: 'Ката', message: String(msg) });
+            // Try to pull a friendly message from Nest validation/HTTP errors
+            if (err?.response?.status === 409) {
+                toast.push({ title: 'Ката', message: 'Бул email менен колдонуучу мурда бар.', variant: 'error' });
+                return;
+            }
+
+            const raw = err?.response?.data?.message ?? err?.message ?? 'Кошууда ката кетти.';
+            const message =
+                Array.isArray(raw) ? raw.join('\n') :
+                    typeof raw === 'object' ? JSON.stringify(raw) :
+                        String(raw);
+
+            toast.push({
+                title: 'Ката',
+                message,
+                variant: 'error',
+            });
         }
     };
+
 
     if (!open) return null;
 

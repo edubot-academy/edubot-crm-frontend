@@ -75,11 +75,25 @@ export default function NewLeadModal({ open, onClose, onCreated }: Props) {
             preferredLang: values.preferredLang || 'kg',
         };
 
-        const { data } = await api.post('/contacts', payload);
-        toast.push({ title: 'OK', message: 'Лид ийгиликтүү кошулду.' });
-        reset();
-        onCreated?.(data?.id);
-        onClose();
+        try {
+            const { data } = await api.post('/contacts', payload);
+            toast.push({
+                title: 'OK',
+                message: 'Лид ийгиликтүү кошулду.',
+            });
+            reset();
+            onCreated?.(data?.id);
+            onClose();
+        } catch (err: any) {
+            const msg =
+                err.response?.data?.message ||
+                err.message ||
+                'Ката кетти. Кийин кайра аракет кылыңыз.';
+            toast.push({
+                title: 'Ката!',
+                message: Array.isArray(msg) ? msg.join('\n') : msg,
+            });
+        }
     };
 
 

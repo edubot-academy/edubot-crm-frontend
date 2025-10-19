@@ -10,6 +10,7 @@ import StatusBadge from '@/components/StatusBadge';
 import Skeleton from '@/components/ui/Skeleton';
 import { Search } from 'lucide-react';
 import NewLeadModal from '@/components/NewLeadModal';
+import { useToast } from '@/components/ui/Toast';
 
 export type Contact = {
     id: number;
@@ -72,6 +73,7 @@ export default function ContactsPage() {
     const abortRef = useRef<AbortController | null>(null);
     const nav = useNavigate();
     const [newOpen, setNewOpen] = useState(false);
+    const toast = useToast();
 
     // Debounce: update q from typedQ after 300ms
     useEffect(() => {
@@ -101,6 +103,7 @@ export default function ContactsPage() {
             const name = e?.name || e?.code;
             if (name !== 'CanceledError' && name !== 'AbortError') {
                 setErr('Жүктөөдө ката кетти.');
+                toast.push({ title: 'Ката', message: e.message, variant: 'error' });
             }
         } finally {
             setLoading(false);

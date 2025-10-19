@@ -9,7 +9,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     const nav = useNavigate();
     const me = currentUser();
     const isActive = (p: string) => loc.pathname.startsWith(p);
-    console.log(me);
     return (
         <div className="min-h-screen grid grid-cols-[240px_1fr] bg-gray-50 text-gray-900">
             <aside className="h-screen sticky top-0 border-r bg-white">

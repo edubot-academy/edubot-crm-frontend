@@ -189,6 +189,7 @@ export default function ContactDetailPage() {
             setTagsStr((data.tags ?? []).join(', '));
         } catch (e) {
             // optional: show toast
+            toast.push({ title: 'Ката', message: toKgError(e), variant: 'error' });
         } finally {
             setLoading(false);
         }
@@ -202,7 +203,8 @@ export default function ContactDetailPage() {
             const { data } = await api.get(`/contacts/${contactId}/notes`, { params: { limit: 20 }, signal: ac.signal as any });
             setNoteItems(Array.isArray(data?.items) ? data.items : []);
         } catch (e) {
-            // ignore
+            // optional: show toast
+            toast.push({ title: 'Ката', message: toKgError(e), variant: 'error' });
         }
         return () => ac.abort();
     }, []);
@@ -248,9 +250,9 @@ export default function ContactDetailPage() {
             } else {
                 await loadNotes(c.id);
             }
-        } catch {
+        } catch (err) {
             setNoteItems(prev => prev.filter(n => n.id !== tempId));
-            toast.push({ title: 'Ката', message: 'Эскертме сакталган жок' });
+            toast.push({ title: 'Ката', message: toKgError(err) });
         }
     }, [c, noteText, loadNotes, toast]);
 
@@ -294,7 +296,7 @@ export default function ContactDetailPage() {
 
             toast.push({ title: 'OK', message: t.contacts.updateOk });
         } catch (err) {
-            toast.push({ title: 'Ката', message: t.contacts.updateFail || toKgError(err) });
+            toast.push({ title: 'Ката', message: t.contacts.updateFail || toKgError(err), variant: 'error' });
         } finally {
             setSaving(false);
         }
@@ -306,9 +308,9 @@ export default function ContactDetailPage() {
         try {
             await api.patch(`/contacts/${c.id}`, { lastContactedAt: new Date().toISOString() });
             await load();
-            toast.push({ title: 'OK', message: 'Акыркы байланыш — жаңыртылды.' });
+            toast.push({ title: 'OK', message: 'Акыркы байланыш — жаңыртылды.', variant: 'success' });
         } catch (err) {
-            toast.push({ title: 'Ката', message: toKgError(err) });
+            toast.push({ title: 'Ката', message: toKgError(err), variant: 'error' });
         }
     }, [c, load, toast]);
 

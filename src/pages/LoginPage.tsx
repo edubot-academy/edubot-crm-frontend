@@ -7,6 +7,7 @@ import { tokenStore } from '@/lib/storage';
 import { useNavigate } from 'react-router-dom';
 import { t } from '@/lib/i18n';
 import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
 
 const schema = z.object({
     email: z.string().min(1, t.auth.required).email(t.auth.invalid),
@@ -17,6 +18,7 @@ type FormValues = z.infer<typeof schema>;
 export default function LoginPage() {
     const nav = useNavigate();
     const [showPwd, setShowPwd] = useState(false);
+    const toast = useToast();
 
     const {
         register,
@@ -30,7 +32,7 @@ export default function LoginPage() {
             tokenStore.set(data);
             nav('/contacts');
         } catch {
-            alert(t.auth.invalid);
+            toast.push({ title: 'Ката', message: errors.email?.message || errors.password?.message || 'Ката кетти', variant: 'error' });
         }
     }
 
