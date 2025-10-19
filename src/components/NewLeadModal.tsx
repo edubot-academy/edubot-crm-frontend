@@ -80,6 +80,7 @@ export default function NewLeadModal({ open, onClose, onCreated }: Props) {
             toast.push({
                 title: 'OK',
                 message: 'Лид ийгиликтүү кошулду.',
+                variant: 'success',
             });
             reset();
             onCreated?.(data?.id);
@@ -92,6 +93,7 @@ export default function NewLeadModal({ open, onClose, onCreated }: Props) {
             toast.push({
                 title: 'Ката!',
                 message: Array.isArray(msg) ? msg.join('\n') : msg,
+                variant: 'error',
             });
         }
     };

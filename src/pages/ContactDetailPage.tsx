@@ -252,7 +252,7 @@ export default function ContactDetailPage() {
             }
         } catch (err) {
             setNoteItems(prev => prev.filter(n => n.id !== tempId));
-            toast.push({ title: 'Ката', message: toKgError(err) });
+            toast.push({ title: 'Ката', message: toKgError(err), variant: 'error' });
         }
     }, [c, noteText, loadNotes, toast]);
 
@@ -286,7 +286,7 @@ export default function ContactDetailPage() {
                     await api.post(`/contacts/${c.id}/notes`, { body: pendingNote });
                     setNoteText('');
                 } catch (err) {
-                    toast.push({ title: 'Эскертме сакталган жок', message: 'Калган өзгөртүүлөр сакталды.' });
+                    toast.push({ title: 'Эскертме сакталган жок', message: 'Калган өзгөртүүлөр сакталды.', variant: 'error' });
                 }
             }
 
