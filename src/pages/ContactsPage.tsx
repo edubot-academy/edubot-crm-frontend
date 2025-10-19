@@ -173,19 +173,6 @@ export default function ContactsPage() {
                                     <option key={s || 'ALL'} value={s}>{STATUS_LABELS[s]}</option>
                                 ))}
                             </Select>
-                            {/* Quick pills (optional but handy) */}
-                            <div className="flex flex-wrap gap-2 mt-2">
-                                {RAW_STATUSES.map(s => (
-                                    <button
-                                        key={s || 'ALL_PILL'}
-                                        onClick={() => { setPage(1); setStatus(s); }}
-                                        className={`px-2.5 py-1 rounded-full border text-xs
-                      ${status === s ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white hover:bg-gray-50'}`}
-                                    >
-                                        {STATUS_LABELS[s]}
-                                    </button>
-                                ))}
-                            </div>
                         </div>
 
                         {/* Per page */}
