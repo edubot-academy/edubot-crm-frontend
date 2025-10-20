@@ -25,7 +25,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <Link to="/contacts" className={`flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 ${isActive('/contacts') ? 'bg-gray-50' : ''}`}>
                         <Users size={16} /> {t.nav.contacts}
                     </Link>
-                    {me?.role === 'manager' || me?.role === 'superadmin' && (
+                    {(me?.role === 'manager' || me?.role === 'superadmin') && (
                         <Link to="/admin" className={`flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 ${isActive('/admin') ? 'bg-gray-50' : ''}`}>
                             <Users size={16} /> {t.nav.admin}
                         </Link>
