@@ -16,36 +16,96 @@ import { currentUser } from '@/lib/auth';
 export type Contact = {
     id: number;
     fullName: string;
-    email?: string;
-    phone?: string;
-    source?: string;
-    status: 'NEW' | 'CONTACTED' | 'QUALIFIED' | 'ENROLLED' | 'LOST';
+    email?: string | null;
+    phone?: string | null;
+    source?: 'WEBSITE' | 'MANUAL' | 'SOCIAL' | 'ADS' | 'REFERRAL' | 'CALL' | 'IMPORT' | 'OTHER';
+    sourceProvider?: string | null;
+
+    // Expanded status model
+    status:
+    | 'NEW'
+    | 'CONTACTED'
+    | 'RESPONDED'
+    | 'QUALIFIED'
+    | 'UNQUALIFIED'
+    | 'FOLLOW_UP'
+    | 'NO_RESPONSE'
+    | 'PENDING_PAYMENT'
+    | 'ENROLLED'
+    | 'DEFERRED'
+    | 'LOST'
+    | 'DUPLICATE'
+    | 'TEST'
+    | 'ARCHIVED';
+
     createdAt: string;
+
+    assignedToUserId?: number | null; // used by Assign UI
+    assignedToName?: string | null;
+    assignedToRole?: 'sales' | 'assistant' | 'manager' | 'superadmin' | null;
+
+    createdByUserId?: number | null;
+    createdByName?: string | null;
 };
 
 type ListRes = { items: Contact[]; total: number; page: number; limit: number; totalPages: number };
 
-const RAW_STATUSES = ['', 'NEW', 'CONTACTED', 'QUALIFIED', 'ENROLLED', 'LOST'] as const;
+type UserLite = { id: number; fullName: string; role: 'sales' | 'assistant' | 'manager' | 'superadmin' };
+
+// All status filters ('' = all)
+const RAW_STATUSES = [
+    '',
+    'NEW',
+    'CONTACTED',
+    'RESPONDED',
+    'QUALIFIED',
+    'UNQUALIFIED',
+    'FOLLOW_UP',
+    'NO_RESPONSE',
+    'PENDING_PAYMENT',
+    'ENROLLED',
+    'DEFERRED',
+    'LOST',
+    'DUPLICATE',
+    'TEST',
+    'ARCHIVED',
+] as const;
+
+// Kyrgyz labels for dropdown/filter chips
 const STATUS_LABELS: Record<(typeof RAW_STATUSES)[number], string> = {
     '': 'Баары',
     NEW: 'ЖАҢЫ',
-    CONTACTED: 'БАЙЛАНЫШКАН',
-    QUALIFIED: 'КВАЛИФИКАЦИЯЛАНГАН',
+    CONTACTED: 'БАЙЛАНЫШТЫК',
+    RESPONDED: 'ЖООП БЕРДИ',
+    QUALIFIED: 'ТАТЫКТУУ',
+    UNQUALIFIED: 'ТАТЫКСЫЗ',
+    FOLLOW_UP: 'КАЙРА БАЙЛАНЫШ',
+    NO_RESPONSE: 'ЖООП ЖОК',
+    PENDING_PAYMENT: 'ТӨЛӨМ КҮТҮЛҮҮДӨ',
     ENROLLED: 'КАТТАЛДЫ',
+    DEFERRED: 'КИЙИНГЕ ЖЫЛДЫРЫЛДЫ',
     LOST: 'ЖОГОЛДУ',
+    DUPLICATE: 'ДУБЛИКАТ',
+    TEST: 'ТЕСТ',
+    ARCHIVED: 'АРХИВДЕЛДИ',
 };
 
-// Build querystring without empty/default params (cleaner URLs)
-function buildQuery(q: string, status: string, page: number, limit: number) {
+// Build querystring without empty/default params (cleaner URLs).
+// Adds assignedToSelf=1 for sales role so backend can filter on server.
+// Fallback client-side filtering is applied if backend does not implement it.
+function buildQuery(q: string, status: string, page: number, limit: number, role?: UserLite['role']) {
     const p = new URLSearchParams();
     if (q.trim()) p.set('search', q.trim());
     if (status) p.set('status', status);
     if (page > 1) p.set('page', String(page));
     if (limit !== 20) p.set('limit', String(limit));
+    if (role === 'sales') {
+        // Ask API to return only my assigned leads
+        p.set('assignedToSelf', '1');
+    }
     return p;
 }
 
-// Parse initial state from URL (so refresh/back keeps filters)
 function useInitialFromUrl() {
     const { search } = useLocation();
     return useMemo(() => {
@@ -61,7 +121,7 @@ function useInitialFromUrl() {
     }, [search]);
 }
 
-/** Lightweight confirm dialog (inline, no external deps) */
+/** Lightweight confirm dialog */
 function ConfirmDialog({
     open,
     title,
@@ -84,9 +144,7 @@ function ConfirmDialog({
     if (!open) return null;
     return (
         <div className="fixed inset-0 z-[9998]">
-            {/* overlay */}
             <div className="absolute inset-0 bg-black/40" onClick={loading ? undefined : onCancel} />
-            {/* modal */}
             <div className="absolute inset-0 flex items-center justify-center p-4">
                 <div className="w-full max-w-md rounded-2xl bg-white shadow-xl z-[9999]">
                     <div className="p-5 border-b">
@@ -109,8 +167,12 @@ function ConfirmDialog({
 
 export default function ContactsPage() {
     const init = useInitialFromUrl();
+    const me = currentUser();
+    const role = me?.role as UserLite['role'] | undefined;
+    const myId = me?.id as number | undefined;
+
+    const [typedQ, setTypedQ] = useState(init.q);
     const [q, setQ] = useState(init.q);
-    const [typedQ, setTypedQ] = useState(init.q); // debounced input
     const [status, setStatus] = useState(init.status);
     const [page, setPage] = useState(init.page);
     const [limit, setLimit] = useState(init.limit);
@@ -122,36 +184,41 @@ export default function ContactsPage() {
     const [newOpen, setNewOpen] = useState(false);
     const toast = useToast();
 
+    // Assignables (users we can assign to)
+    const [assignables, setAssignables] = useState<UserLite[]>([]);
+    const [assignBusy, setAssignBusy] = useState<Record<number, boolean>>({}); // per-contact busy state
+
     // Selection for bulk actions
     const [selected, setSelected] = useState<number[]>([]);
     const hasSelection = selected.length > 0;
 
-    // Delete modal (single)
+    // Delete modals
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [confirmLoading, setConfirmLoading] = useState(false);
     const [target, setTarget] = useState<Contact | null>(null);
 
-    // Bulk modals: 'delete' | 'purge' | null
     const [bulkMode, setBulkMode] = useState<'delete' | 'purge' | null>(null);
 
-    // current user role (adjust to your auth util if you have parseJwt())
-    const isSuperadmin = currentUser()?.role === 'superadmin';
+    const isSuperadmin = role === 'superadmin';
+    const isManager = role === 'manager';
+    const isAssistant = role === 'assistant';
+    const isSales = role === 'sales';
 
-    // Debounce: update q from typedQ after 300ms
+    // Debounce search
     useEffect(() => {
         const id = setTimeout(() => setQ(typedQ), 300);
         return () => clearTimeout(id);
     }, [typedQ]);
 
-    // Build params & keep URL in sync (replace, not push)
-    const params = useMemo(() => buildQuery(q, status, page, limit), [q, status, page, limit]);
+    // Build params & sync URL
+    const params = useMemo(() => buildQuery(q, status, page, limit, role), [q, status, page, limit, role]);
     useEffect(() => {
         const qs = params.toString();
         const url = qs ? `/contacts?${qs}` : '/contacts';
         window.history.replaceState(null, '', url);
     }, [params]);
 
-    // Load with abortable request
+    // Load contacts
     const load = useCallback(async () => {
         setLoading(true);
         setErr('');
@@ -160,9 +227,15 @@ export default function ContactsPage() {
         abortRef.current = ac;
         try {
             const { data } = await api.get<ListRes>(`/contacts?${params.toString()}`, { signal: ac.signal as any });
-            setData(data);
-            // Deselect items not on current page
-            setSelected((sel) => sel.filter((id) => data.items.some((it) => it.id === id)));
+
+            // Fallback client-side filtering for sales if backend didn't filter
+            let items = data.items;
+            if (isSales && myId) {
+                items = items.filter((it) => it.assignedToUserId === myId);
+            }
+
+            setData({ ...data, items });
+            setSelected((sel) => sel.filter((id) => items.some((it) => it.id === id)));
         } catch (e: any) {
             const name = e?.name || e?.code;
             if (name !== 'CanceledError' && name !== 'AbortError') {
@@ -173,12 +246,31 @@ export default function ContactsPage() {
         } finally {
             setLoading(false);
         }
-    }, [params]);
+    }, [params, toast, isSales, myId]);
 
+    useEffect(() => { void load(); }, [load]);
+
+    // Load assignables once (assistants/managers/superadmins need this)
     useEffect(() => {
-        void load();
+        async function fetchAssignables() {
+            if (!(isAssistant || isManager || isSuperadmin)) return;
+            try {
+                // Preferred endpoint
+                const try1 = await api.get<UserLite[]>('/users/assignables');
+                setAssignables(try1.data);
+            } catch {
+                try {
+                    // Fallback: roles filter
+                    const try2 = await api.get<UserLite[]>('/users', { params: { roles: 'sales,assistant,manager' } });
+                    setAssignables(try2.data);
+                } catch {
+                    setAssignables([]);
+                }
+            }
+        }
+        fetchAssignables();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [load]);
+    }, [isAssistant, isManager, isSuperadmin]);
 
     const totalPages = data?.totalPages ?? 1;
     const canPrev = page > 1;
@@ -206,13 +298,10 @@ export default function ContactsPage() {
         try {
             const wasLastOnPage = (data?.items?.length ?? 0) <= 1 && page > 1;
             await api.delete(`/contacts/${target.id}`);
-
             toast.push({ title: 'OK', message: 'Контакт өчүрүлдү.', variant: 'success' });
-
             setConfirmOpen(false);
             setTarget(null);
             setConfirmLoading(false);
-
             if (wasLastOnPage) setPage((p) => Math.max(1, p - 1));
             else await load();
         } catch (e: any) {
@@ -222,7 +311,7 @@ export default function ContactsPage() {
         }
     }
 
-    // Bulk actions
+    // Bulk actions (only superadmin per your requirement)
     const openBulkDelete = () => setBulkMode('delete');
     const openBulkPurge = () => setBulkMode('purge');
 
@@ -237,11 +326,8 @@ export default function ContactsPage() {
                 await api.post('/contacts/bulk-delete', { ids: selected });
                 toast.push({ title: 'OK', message: 'Контакттар өчүрүлдү.', variant: 'success' });
             }
-
             setConfirmLoading(false);
             setBulkMode(null);
-
-            // If we removed all rows on the page and there were more pages, step back
             const removedAllOnPage = selected.length >= (data?.items?.length ?? 0) && page > 1;
             setSelected([]);
             if (removedAllOnPage) setPage((p) => Math.max(1, p - 1));
@@ -266,21 +352,77 @@ export default function ContactsPage() {
         else setSelected([]);
     };
 
+    // Helpers
+    const renderSource = (c: Contact) => {
+        const src = c.source || '—';
+        const prov = c.sourceProvider?.trim();
+        return (
+            <div className="text-sm">
+                <div className="font-medium">{src}</div>
+                {prov ? <div className="text-gray-600 text-xs">{prov}</div> : null}
+            </div>
+        );
+    };
+
+    // Bulk controls only for superadmin (manager removed)
+    const canShowBulkControls = isSuperadmin;
+
+    // Assign change
+    async function onAssignChange(contactId: number, assigneeStr: string) {
+        const assigneeUserId = assigneeStr === '' ? null : Number(assigneeStr);
+        setAssignBusy((m) => ({ ...m, [contactId]: true }));
+        try {
+            await api.post('/contacts/assign', { contactId, assigneeUserId });
+            toast.push({
+                title: 'OK',
+                message: assigneeUserId ? 'Жооптуу адам дайындалды.' : 'Жооптуу адам алынды.',
+                variant: 'success',
+            });
+            await load();
+        } catch (e: any) {
+            const raw = e?.response?.data?.message ?? e?.message ?? 'Дайындоодо ката кетти.';
+            toast.push({ title: 'Ката', message: Array.isArray(raw) ? raw.join('\n') : String(raw), variant: 'error' });
+        } finally {
+            setAssignBusy((m) => ({ ...m, [contactId]: false }));
+        }
+    }
+
+    // Sales self-assign (visible only if unassigned)
+    async function onSelfAssign(contactId: number) {
+        setAssignBusy((m) => ({ ...m, [contactId]: true }));
+        try {
+            await api.patch(`/contacts/${contactId}/self-assign`);
+            toast.push({ title: 'OK', message: 'Лид өзүңүзгө дайындалды.', variant: 'success' });
+            await load();
+        } catch (e: any) {
+            const raw = e?.response?.data?.message ?? e?.message ?? 'Ката кетти.';
+            toast.push({ title: 'Ката', message: Array.isArray(raw) ? raw.join('\n') : String(raw), variant: 'error' });
+        } finally {
+            setAssignBusy((m) => ({ ...m, [contactId]: false }));
+        }
+    }
+
+    // Role labels (Kyrgyz)
+    const roleKg: Record<UserLite['role'], string> = {
+        sales: 'Сатуу',
+        assistant: 'Ассистент',
+        manager: 'Менеджер',
+        superadmin: 'Супер админ',
+    };
+
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <h1 className="text-xl font-semibold">{t.contacts.title}</h1>
                 <div className="flex items-center gap-2">
-                    {hasSelection && (
+                    {hasSelection && canShowBulkControls && (
                         <>
                             <button className="btn btn-danger" onClick={openBulkDelete}>
                                 Тандалгандарды өчүрүү ({selected.length})
                             </button>
-                            {isSuperadmin && (
-                                <button className="btn btn-warning" onClick={openBulkPurge}>
-                                    Тандалгандарды түбөлүк өчүрүү
-                                </button>
-                            )}
+                            <button className="btn btn-warning" onClick={openBulkPurge}>
+                                Тандалгандарды түбөлүк өчүрүү
+                            </button>
                         </>
                     )}
                     <button onClick={() => setNewOpen(true)} className="btn btn-primary">
@@ -292,7 +434,7 @@ export default function ContactsPage() {
             <Card>
                 <CardBody>
                     <div className="grid md:grid-cols-4 gap-3">
-                        {/* Search (debounced) */}
+                        {/* Search */}
                         <div className="relative">
                             <label className="block text-sm mb-1">{t.contacts.search}</label>
                             <Input
@@ -319,7 +461,7 @@ export default function ContactsPage() {
                             <Search size={16} className="absolute right-3 bottom-3 opacity-60" />
                         </div>
 
-                        {/* Status filter (select) */}
+                        {/* Status */}
                         <div>
                             <label className="block text-sm mb-1">{t.contacts.status}</label>
                             <Select
@@ -355,7 +497,7 @@ export default function ContactsPage() {
                             </Select>
                         </div>
 
-                        {/* Result summary */}
+                        {/* Summary */}
                         <div className="flex items-end">
                             <div className="text-sm text-gray-600">
                                 Натыйжа: {data?.total ?? 0} • {t.contacts.page}: {data?.page ?? 1} / {data?.totalPages ?? 1}
@@ -373,7 +515,7 @@ export default function ContactsPage() {
                         <Table>
                             <THead>
                                 <tr>
-                                    {isSuperadmin && (
+                                    {(isSuperadmin /* manager removed here */) && (
                                         <th scope="col">
                                             <input
                                                 type="checkbox"
@@ -408,54 +550,93 @@ export default function ContactsPage() {
                                     </tr>
                                 )}
 
-                                {data?.items?.map((c) => (
-                                    <tr
-                                        key={c.id}
-                                        className="border-t hover:bg-gray-50 cursor-pointer"
-                                        onClick={(e) => {
-                                            if (!(e.target as HTMLElement).closest('a,button,input')) nav(`/contacts/${c.id}`);
-                                        }}
-                                    >
-                                        {isSuperadmin && (
-                                            <td onClick={(e) => e.stopPropagation()}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selected.includes(c.id)}
-                                                    onChange={(e) => {
-                                                        if (e.target.checked) setSelected((s) => [...s, c.id]);
-                                                        else setSelected((s) => s.filter((id) => id !== c.id));
-                                                    }}
-                                                />
+                                {data?.items?.map((c) => {
+                                    const busy = !!assignBusy[c.id];
+                                    const isUnassigned = !c.assignedToUserId;
+                                    return (
+                                        <tr
+                                            key={c.id}
+                                            className="border-t hover:bg-gray-50 cursor-pointer"
+                                            onClick={(e) => {
+                                                if (!(e.target as HTMLElement).closest('a,button,input,select')) nav(`/contacts/${c.id}`);
+                                            }}
+                                        >
+                                            {(isSuperadmin /* manager removed here */) && (
+                                                <td onClick={(e) => e.stopPropagation()}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selected.includes(c.id)}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) setSelected((s) => [...s, c.id]);
+                                                            else setSelected((s) => s.filter((id) => id !== c.id));
+                                                        }}
+                                                    />
+                                                </td>
+                                            )}
+                                            <td scope="row" className="font-mono">
+                                                {c.id}
                                             </td>
-                                        )}
-                                        <td scope="row" className="font-mono">
-                                            {c.id}
-                                        </td>
-                                        <td className="font-medium">{c.fullName}</td>
-                                        <td>
-                                            <StatusBadge status={c.status} />
-                                        </td>
-                                        <td>{c.source || '—'}</td>
-                                        <td>{new Date(c.createdAt).toLocaleString()}</td>
-                                        {(isSuperadmin || currentUser()?.role === 'manager') && (
-                                            <td className="flex items-center gap-2">
+                                            <td className="font-medium">
+                                                <div>{c.fullName}</div>
+                                            </td>
+                                            <td>
+                                                <StatusBadge status={c.status} />
+                                            </td>
+                                            <td>{renderSource(c)}</td>
+                                            <td>{new Date(c.createdAt).toLocaleString()}</td>
+
+                                            <td className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                {/* View */}
                                                 <Link to={`/contacts/${c.id}`} className="btn btn-ghost text-emerald-700">
                                                     {t.contacts.view}
                                                 </Link>
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-danger"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        askDelete(c);
-                                                    }}
-                                                >
-                                                    Өчүрүү
-                                                </button>
+
+                                                {/* Assign dropdown: assistant/manager/superadmin */}
+                                                {(isAssistant || isManager || isSuperadmin) && (
+                                                    <div className="flex items-center gap-2">
+                                                        <Select
+                                                            value={c.assignedToUserId ? String(c.assignedToUserId) : ''}
+                                                            onChange={(e) => onAssignChange(c.id, e.target.value)}
+                                                            disabled={busy || assignables.length === 0}
+                                                            title="Жооптуу адам"
+                                                        >
+                                                            <option value="">{busy ? 'Жүктөлүүдө...' : '— (Дайындалган жок)'}</option>
+                                                            {assignables.map((u) => (
+                                                                <option key={u.id} value={u.id}>
+                                                                    {u.fullName} • {roleKg[u.role]}
+                                                                </option>
+                                                            ))}
+                                                        </Select>
+                                                        {busy && <span className="text-xs opacity-70">…</span>}
+                                                    </div>
+                                                )}
+
+                                                {/* Sales: self-assign if unassigned */}
+                                                {isSales && isUnassigned && (
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-primary"
+                                                        disabled={busy}
+                                                        onClick={() => onSelfAssign(c.id)}
+                                                    >
+                                                        {busy ? 'Жүктөлүүдө…' : 'Өзүмө алуу'}
+                                                    </button>
+                                                )}
+
+                                                {/* Delete (superadmin only; manager removed; sales never sees this) */}
+                                                {isSuperadmin && (
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-danger"
+                                                        onClick={() => askDelete(c)}
+                                                    >
+                                                        Өчүрүү
+                                                    </button>
+                                                )}
                                             </td>
-                                        )}
-                                    </tr>
-                                ))}
+                                        </tr>
+                                    );
+                                })}
                             </TBody>
                         </Table>
                     </div>
@@ -493,7 +674,6 @@ export default function ContactsPage() {
                 onClose={() => setNewOpen(false)}
                 onCreated={async () => {
                     await load();
-                    // setPage(1); // optionally jump to first page to see newest
                 }}
             />
 
@@ -513,7 +693,7 @@ export default function ContactsPage() {
                 onCancel={() => (!confirmLoading ? (setConfirmOpen(false), setTarget(null)) : undefined)}
             />
 
-            {/* Bulk delete / purge confirm */}
+            {/* Bulk delete / purge confirm (superadmin-only) */}
             <ConfirmDialog
                 open={!!bulkMode}
                 title={bulkMode === 'purge' ? 'Тастыктаңыз: түбөлүк өчүрүү' : 'Өчүрүүнү тастыктаңыз'}
@@ -526,9 +706,7 @@ export default function ContactsPage() {
                 cancelText="Жокко чыгаруу"
                 loading={confirmLoading}
                 onConfirm={confirmBulk}
-                onCancel={() => {
-                    if (!confirmLoading) setBulkMode(null);
-                }}
+                onCancel={() => { if (!confirmLoading) setBulkMode(null); }}
             />
         </div>
     );

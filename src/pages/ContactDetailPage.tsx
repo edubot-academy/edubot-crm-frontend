@@ -5,6 +5,7 @@ import { t } from '@/lib/i18n';
 import type { Contact as ContactList } from './ContactsPage';
 import { Card, CardBody, Section } from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
 import { PrimaryButton, GhostButton, SubtleButton } from '@/components/ui/Button';
 import StatusBadge from '@/components/StatusBadge';
 import { useToast } from '@/components/ui/Toast';
@@ -33,6 +34,7 @@ export type Contact = ContactList & {
     utmSource?: string | null;
     utmMedium?: string | null;
     utmCampaign?: string | null;
+    sourceProvider?: string | null;
 
     ownerName?: string | null;
 };
@@ -44,35 +46,53 @@ type NoteItem = {
     author?: { fullName?: string };
 };
 
-// ---------- Pipeline & labels ----------
-const NEXT_ALLOWED: Record<ContactList['status'], ContactList['status'][]> = {
-    NEW: ['CONTACTED', 'LOST'],
-    CONTACTED: ['QUALIFIED', 'LOST'],
-    QUALIFIED: ['ENROLLED', 'LOST'],
-    ENROLLED: ['LOST'],
-    LOST: ['NEW'],
+// ---------- Pipeline & labels (expanded) ----------
+type S = ContactList['status'];
+
+const NEXT_ALLOWED: Record<S, S[]> = {
+    NEW: ['CONTACTED', 'RESPONDED', 'NO_RESPONSE', 'LOST', 'DUPLICATE', 'TEST'],
+    CONTACTED: ['RESPONDED', 'QUALIFIED', 'UNQUALIFIED', 'NO_RESPONSE', 'FOLLOW_UP', 'LOST'],
+    RESPONDED: ['QUALIFIED', 'UNQUALIFIED', 'FOLLOW_UP', 'NO_RESPONSE', 'LOST'],
+    QUALIFIED: ['PENDING_PAYMENT', 'FOLLOW_UP', 'LOST'],
+    UNQUALIFIED: ['ARCHIVED', 'FOLLOW_UP'],
+    FOLLOW_UP: ['RESPONDED', 'QUALIFIED', 'UNQUALIFIED', 'NO_RESPONSE', 'LOST'],
+    NO_RESPONSE: ['FOLLOW_UP', 'ARCHIVED', 'LOST'],
+    PENDING_PAYMENT: ['ENROLLED', 'DEFERRED', 'FOLLOW_UP', 'LOST'],
+    ENROLLED: ['ARCHIVED'],
+    DEFERRED: ['PENDING_PAYMENT', 'FOLLOW_UP', 'LOST'],
+    LOST: ['ARCHIVED', 'NEW'],
+    DUPLICATE: ['ARCHIVED'],
+    TEST: ['ARCHIVED'],
+    ARCHIVED: [],
 };
 
-const PIPELINE: ContactList['status'][] = ['NEW', 'CONTACTED', 'QUALIFIED', 'ENROLLED', 'LOST'];
+// Core pipeline to visualize journey
+const PIPELINE: S[] = ['NEW', 'CONTACTED', 'RESPONDED', 'NO_RESPONSE', 'QUALIFIED', 'PENDING_PAYMENT', 'ENROLLED'];
 
-const STATUS_LABELS: Record<ContactList['status'], string> = {
+const STATUS_LABELS: Record<S, string> = {
     NEW: 'ЖАҢЫ',
-    CONTACTED: 'БАЙЛАНЫШКАН',
-    QUALIFIED: 'КВАЛИФИКАЦИЯЛАНГАН',
+    CONTACTED: 'БАЙЛАНЫШТЫК',
+    RESPONDED: 'ЖООП БЕРДИ',
+    QUALIFIED: 'ТАТЫКТУУ',
+    UNQUALIFIED: 'ТАТЫКСЫЗ',
+    FOLLOW_UP: 'КАЙРА БАЙЛАНЫШ',
+    NO_RESPONSE: 'ЖООП ЖОК',
+    PENDING_PAYMENT: 'ТӨЛӨМ КҮТҮЛҮҮДӨ',
     ENROLLED: 'КАТТАЛДЫ',
+    DEFERRED: 'КИЙИНГЕ ЖЫЛДЫРЫЛДЫ',
     LOST: 'ЖОГОЛДУ',
+    DUPLICATE: 'ДУБЛИКАТ',
+    TEST: 'ТЕСТ',
+    ARCHIVED: 'АРХИВДЕЛДИ',
 };
 
 // ---------- Time helpers ----------
-// <input type="datetime-local"> expects a "local" string like 2025-10-17T08:30
 function toLocalInputValue(iso?: string | null) {
     if (!iso) return '';
     const d = new Date(iso);
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-
-// Convert the local picker value back to ISO (UTC) without shifting the intended local time
 function fromLocalInputValue(local: string): string | null {
     if (!local) return null;
     const [date, time] = local.split('T');
@@ -152,6 +172,7 @@ export default function ContactDetailPage() {
     const toast = useToast();
 
     const [tab, setTab] = useState<'overview' | 'timeline'>('overview');
+    const [editing, setEditing] = useState(false);
 
     const [c, setC] = useState<Contact | null>(null);
     const [loading, setLoading] = useState(true);
@@ -167,6 +188,10 @@ export default function ContactDetailPage() {
         [tagsStr]
     );
 
+    // NEW: course editable state
+    const [courseName, setCourseName] = useState<string>('');
+    const [courseType, setCourseType] = useState<'' | 'campus' | 'online' | 'hybrid'>('');
+
     // append-only notes (history)
     const [noteText, setNoteText] = useState('');
     const [noteItems, setNoteItems] = useState<NoteItem[]>([]);
@@ -176,61 +201,61 @@ export default function ContactDetailPage() {
         return typeof msg === 'string' ? msg : 'Белгисиз ката кетти.';
     };
 
+    const hydrateFormFrom = (data: Contact) => {
+        setStatus(data.status);
+        setPriority(Math.max(1, Number(data.priority ?? 1)));
+        setNextFollowUpAt(toLocalInputValue(data.nextFollowUpAt));
+        setTagsStr((data.tags ?? []).join(', '));
+        setCourseName((data.courseName ?? '') as string);
+        setCourseType(((data.courseType as any) ?? '') as any);
+    };
+
     const load = useCallback(async () => {
         if (!id) return;
-        const ac = new AbortController();
         setLoading(true);
         try {
-            const { data } = await api.get<Contact>(`/contacts/${id}`, { signal: ac.signal as any });
+            const { data } = await api.get<Contact>(`/contacts/${id}`);
             setC(data);
-            setStatus(data.status);
-            setPriority(Math.max(1, Number(data.priority ?? 1)));
-            setNextFollowUpAt(toLocalInputValue(data.nextFollowUpAt));
-            setTagsStr((data.tags ?? []).join(', '));
+            hydrateFormFrom(data);
         } catch (e) {
-            // optional: show toast
             toast.push({ title: 'Ката', message: toKgError(e), variant: 'error' });
         } finally {
             setLoading(false);
         }
-        return () => ac.abort();
-    }, [id]);
+    }, [id, toast]);
 
     // GET /contacts/:id/notes
     const loadNotes = useCallback(async (contactId: number) => {
-        const ac = new AbortController();
         try {
-            const { data } = await api.get(`/contacts/${contactId}/notes`, { params: { limit: 20 }, signal: ac.signal as any });
+            const { data } = await api.get(`/contacts/${contactId}/notes`, { params: { limit: 20 } });
             setNoteItems(Array.isArray(data?.items) ? data.items : []);
         } catch (e) {
-            // optional: show toast
             toast.push({ title: 'Ката', message: toKgError(e), variant: 'error' });
         }
-        return () => ac.abort();
-    }, []);
+    }, [toast]);
 
-    useEffect(() => {
-        void load();
-    }, [load]);
-
-    useEffect(() => {
-        if (c?.id) void loadNotes(c.id);
-    }, [c?.id, loadNotes]);
+    useEffect(() => { void load(); }, [load]);
+    useEffect(() => { if (c?.id) void loadNotes(c.id); }, [c?.id, loadNotes]);
 
     // Compute dirty state to enable/disable Save
     const isDirty = useMemo(() => {
         if (!c) return false;
         const baseNext = toLocalInputValue(c.nextFollowUpAt);
         const baseTags = (c.tags ?? []).slice().map(s => s.trim()).filter(Boolean);
+        const baseCourseName = c.courseName ?? '';
+        const baseCourseType = (c.courseType ?? '') as string;
+
         return (
             status !== c.status ||
             priority !== Math.max(1, Number(c.priority ?? 1)) ||
             nextFollowUpAt !== baseNext ||
-            !eqArr(tagsArr, baseTags)
+            !eqArr(tagsArr, baseTags) ||
+            courseName !== baseCourseName ||
+            (courseType || '') !== (baseCourseType || '')
         );
-    }, [c, status, priority, nextFollowUpAt, tagsArr]);
+    }, [c, status, priority, nextFollowUpAt, tagsArr, courseName, courseType]);
 
-    const canSave = (isDirty || !!noteText.trim()) && !saving;
+    const canSave = editing && (isDirty || !!noteText.trim()) && !saving;
 
     // POST /contacts/:id/notes
     const addNote = useCallback(async () => {
@@ -274,6 +299,12 @@ export default function ContactDetailPage() {
             const baseTags = (c.tags ?? []).slice().map(s => s.trim()).filter(Boolean);
             if (!eqArr(tagsArr, baseTags)) payload.tags = tagsArr;
 
+            // course fields
+            const baseCourseName = c.courseName ?? '';
+            const baseCourseType = (c.courseType ?? '') as string;
+            if (courseName !== baseCourseName) payload.courseName = courseName.trim() ? courseName.trim() : null;
+            if ((courseType || '') !== (baseCourseType || '')) payload.courseType = courseType || null;
+
             // 1) Save contact (only if something changed)
             if (Object.keys(payload).length > 0) {
                 await api.patch(`/contacts/${c.id}`, payload);
@@ -294,13 +325,21 @@ export default function ContactDetailPage() {
             await load();
             if (c.id) await loadNotes(c.id);
 
+            setEditing(false);
             toast.push({ title: 'OK', message: t.contacts.updateOk });
         } catch (err) {
             toast.push({ title: 'Ката', message: t.contacts.updateFail || toKgError(err), variant: 'error' });
         } finally {
             setSaving(false);
         }
-    }, [c, status, priority, nextFollowUpAt, tagsArr, noteText, load, loadNotes, toast]);
+    }, [c, status, priority, nextFollowUpAt, tagsArr, noteText, load, loadNotes, toast, courseName, courseType]);
+
+    // Cancel edits
+    const cancel = useCallback(() => {
+        if (!c) return;
+        hydrateFormFrom(c);
+        setEditing(false);
+    }, [c]);
 
     // Mark contacted now (quick action)
     const markContactedNow = useCallback(async () => {
@@ -314,7 +353,7 @@ export default function ContactDetailPage() {
         }
     }, [c, load, toast]);
 
-    // Keyboard shortcut: ⌘/Ctrl + S
+    // Keyboard shortcut: ⌘/Ctrl + S (only when editing)
     useEffect(() => {
         function onKey(e: KeyboardEvent) {
             const mod = navigator.platform.includes('Mac') ? e.metaKey : e.ctrlKey;
@@ -329,6 +368,7 @@ export default function ContactDetailPage() {
 
     // UI helpers
     function removeTag(i: number) {
+        if (!editing) return;
         const arr = tagsArr.slice(); arr.splice(i, 1); setTagsStr(arr.join(', '));
     }
 
@@ -338,7 +378,10 @@ export default function ContactDetailPage() {
     const allowed = NEXT_ALLOWED[c.status] ?? [];
     const lastUpdateLabel = `Акыркы жаңыртуу: ${new Date(c.updatedAt || c.createdAt).toLocaleString()}`;
     const lastContactedLabel = c.lastContactedAt ? new Date(c.lastContactedAt).toLocaleString() : '—';
-    const primaryNext = allowed[0];
+    const primaryNext = allowed[0] as S | undefined;
+
+    // Helper to render source + provider
+    const sourceDisplay = c.sourceProvider ? `${c.source || '—'} · ${c.sourceProvider}` : (c.source || '—');
 
     return (
         <div className="max-w-6xl mx-auto space-y-5 pb-16">
@@ -371,7 +414,14 @@ export default function ContactDetailPage() {
                 <div className="flex gap-2">
                     <GhostButton><Send className="w-4 h-4" /> Кат жөнөтүү</GhostButton>
                     <GhostButton><ArrowRightLeft className="w-4 h-4" /> Конвертациялоо</GhostButton>
-                    <GhostButton><Pencil className="w-4 h-4" /> Оңдоо</GhostButton>
+                    {!editing ? (
+                        <GhostButton onClick={() => setEditing(true)}><Pencil className="w-4 h-4" /> Оңдоо</GhostButton>
+                    ) : (
+                        <>
+                            <GhostButton onClick={cancel}><X className="w-4 h-4" /> Жокко чыгаруу</GhostButton>
+                            <PrimaryButton onClick={save} disabled={!canSave}><Save className="w-4 h-4" /> {saving ? t.contacts.saving : t.contacts.save}</PrimaryButton>
+                        </>
+                    )}
                     <GhostButton><MoreHorizontal className="w-4 h-4" /></GhostButton>
                 </div>
             </div>
@@ -402,8 +452,12 @@ export default function ContactDetailPage() {
                     <div className="sticky top-20 space-y-2 text-sm">
                         <div className="font-medium text-gray-700 mb-2">Кыскача маалымат</div>
                         <ul className="space-y-1">
-                            <li className="flex items-center justify-between"><span>Лид ээси</span><span className="text-gray-600">{c.ownerName || '—'}</span></li>
-                            <li className="flex items-center justify-between"><span>Булагы</span><span className="text-gray-600">{c.source || '—'}</span></li>
+                            <li className="flex items-center justify-between"><span>Лид ээси</span><span className="text-gray-600">{c.createdByName || '—'}</span></li>
+                            <li className="flex items-center justify-between">
+                                <span>Жооптуу</span>
+                                <span className="text-gray-600">{c.assignedToName || '—'}</span>
+                            </li>
+                            <li className="flex items-center justify-between"><span>Булагы</span><span className="text-gray-600">{sourceDisplay}</span></li>
                             <li className="flex items-center justify-between"><span>Акыркы байланыш</span><span className="text-gray-600">{lastContactedLabel}</span></li>
                             <li className="flex items-center justify-between"><span>Кийинки байланыш</span><span className="text-gray-600">{c.nextFollowUpAt ? new Date(c.nextFollowUpAt).toLocaleString() : '—'}</span></li>
                             <li className="flex items-center justify-between"><span>Приоритет</span><span className="text-gray-600">{Math.max(1, Number(c.priority ?? 1))}</span></li>
@@ -423,7 +477,7 @@ export default function ContactDetailPage() {
                                         {PIPELINE.map((s) => {
                                             const isCurrent = s === c.status;
                                             const allowedNext = new Set(NEXT_ALLOWED[c.status] ?? []);
-                                            const canGo = isCurrent || allowedNext.has(s);
+                                            const canGo = editing && (isCurrent || allowedNext.has(s));
                                             return (
                                                 <button
                                                     key={s}
@@ -431,8 +485,8 @@ export default function ContactDetailPage() {
                                                     disabled={!canGo}
                                                     onClick={() => canGo && setStatus(s)}
                                                     className={`px-3 py-1 rounded-lg border text-xs md:text-sm
-                            ${status === s ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white hover:bg-gray-50'}
-                            ${!canGo && 'opacity-50 cursor-not-allowed'}`}
+                              ${status === s ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white hover:bg-gray-50'}
+                              ${!canGo && 'opacity-50 cursor-not-allowed'}`}
                                                 >
                                                     {STATUS_LABELS[s]}
                                                 </button>
@@ -440,7 +494,10 @@ export default function ContactDetailPage() {
                                         })}
                                     </div>
                                     {primaryNext && (
-                                        <PrimaryButton onClick={() => setStatus(primaryNext as Contact['status'])}>
+                                        <PrimaryButton
+                                            onClick={() => setStatus(primaryNext)}
+                                            disabled={!editing}
+                                        >
                                             Кийинки статус: {STATUS_LABELS[primaryNext]}
                                         </PrimaryButton>
                                     )}
@@ -458,7 +515,7 @@ export default function ContactDetailPage() {
                                         <dd className="col-span-2">{c.phone || '—'}</dd>
 
                                         <dt className="text-gray-500">Лид булагы</dt>
-                                        <dd className="col-span-2">{c.source || '—'}</dd>
+                                        <dd className="col-span-2">{sourceDisplay}</dd>
 
                                         <dt className="text-gray-500">Курс</dt>
                                         <dd className="col-span-2">{c.courseName ? `${c.courseName} (${c.courseType || '—'})` : '—'}</dd>
@@ -492,9 +549,8 @@ export default function ContactDetailPage() {
                                         <div><span className="text-gray-500">utm_source: </span>{c.utmSource || '—'}</div>
                                         <div><span className="text-gray-500">utm_medium: </span>{c.utmMedium || '—'}</div>
                                         <div><span className="text-gray-500">utm_campaign: </span>{c.utmCampaign || '—'}</div>
-                                        {/* Suggest turning UTM into tags */}
                                         <div className="mt-2 text-xs text-gray-500">
-                                            UTMден тег кошуу: {' '}
+                                            UTMден тег кошуу:{' '}
                                             {['utmSource', 'utmMedium', 'utmCampaign'].map((k) => {
                                                 const val = (c as any)[k];
                                                 if (!val) return null;
@@ -502,8 +558,9 @@ export default function ContactDetailPage() {
                                                     <button
                                                         key={k}
                                                         type="button"
-                                                        className="px-2 py-0.5 rounded-full border bg-gray-50 mr-1"
-                                                        onClick={() => setTagsStr(s => s ? `${s}, ${val}` : val)}
+                                                        className={`px-2 py-0.5 rounded-full border ${editing ? 'bg-gray-50' : 'bg-gray-100 opacity-60 cursor-not-allowed'}`}
+                                                        onClick={() => editing && setTagsStr(s => s ? `${s}, ${val}` : val)}
+                                                        disabled={!editing}
                                                     >
                                                         + {val}
                                                     </button>
@@ -526,9 +583,9 @@ export default function ContactDetailPage() {
                                     <div>
                                         <label className="block text-sm mb-1 flex items-center gap-1"><CalendarClock className="w-4 h-4" /> {t.contacts.nextFollowUpAt}</label>
                                         <div className="flex gap-2">
-                                            <Input type="datetime-local" value={nextFollowUpAt} onChange={(e) => setNextFollowUpAt(e.target.value)} className="h-10 text-sm flex-1" />
+                                            <Input type="datetime-local" value={nextFollowUpAt} onChange={(e) => setNextFollowUpAt(e.target.value)} className="h-10 text-sm flex-1" disabled={!editing} />
                                             {nextFollowUpAt && (
-                                                <SubtleButton onClick={() => setNextFollowUpAt('')} title="Такташ">Өчүрүү</SubtleButton>
+                                                <SubtleButton onClick={() => editing && setNextFollowUpAt('')} title="Такташ" disabled={!editing}>Өчүрүү</SubtleButton>
                                             )}
                                         </div>
                                     </div>
@@ -545,8 +602,35 @@ export default function ContactDetailPage() {
                                                 setPriority(Number.isFinite(n) ? n : 1);
                                             }}
                                             className="h-10 text-sm"
+                                            disabled={!editing}
                                         />
-                                        {priority < 1 && <div className="text-xs text-red-600 mt-1">Минималдуу 1</div>}
+                                        {editing && priority < 1 && <div className="text-xs text-red-600 mt-1">Минималдуу 1</div>}
+                                    </div>
+
+                                    {/* Course editing */}
+                                    <div>
+                                        <label className="block text-sm mb-1">Курс (аты)</label>
+                                        <Input
+                                            value={courseName}
+                                            onChange={(e) => setCourseName(e.target.value)}
+                                            placeholder="frontend, backend..."
+                                            className="h-10 text-sm"
+                                            disabled={!editing}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm mb-1">Курс түрү</label>
+                                        <Select
+                                            value={courseType}
+                                            onChange={(e) => setCourseType(e.target.value as any)}
+                                            className="h-10 text-sm"
+                                            disabled={!editing}
+                                        >
+                                            <option value="">—</option>
+                                            <option value="campus">campus</option>
+                                            <option value="online">online</option>
+                                            <option value="hybrid">hybrid</option>
+                                        </Select>
                                     </div>
 
                                     <div className="md:col-span-2">
@@ -555,6 +639,7 @@ export default function ContactDetailPage() {
                                             value={tagsStr}
                                             onChange={(e) => setTagsStr(e.target.value)}
                                             onKeyDown={(e) => {
+                                                if (!editing) return;
                                                 if (e.key === 'Enter') {
                                                     e.preventDefault();
                                                     setTagsStr(s => (s.endsWith(',') || s === '' ? s : s + ', '));
@@ -562,25 +647,29 @@ export default function ContactDetailPage() {
                                             }}
                                             placeholder="morning, teen"
                                             className="h-10 text-sm"
+                                            disabled={!editing}
                                         />
                                         {tagsArr.length > 0 && (
                                             <div className="mt-2 flex flex-wrap gap-2">
                                                 {tagsArr.map((tg, i) => (
-                                                    <span key={`${tg}-${i}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border bg-gray-50 text-xs leading-5">
+                                                    <span key={`${tg}-${i}`} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs leading-5 ${editing ? 'bg-gray-50' : 'bg-gray-100'}`}>
                                                         {tg}
-                                                        <button type="button" className="hover:text-red-600" onClick={() => removeTag(i)} aria-label="Өчүрүү">×</button>
+                                                        <button type="button" className={`hover:text-red-600 ${!editing && 'opacity-40 cursor-not-allowed'}`} onClick={() => removeTag(i)} aria-label="Өчүрүү" disabled={!editing}>×</button>
                                                     </span>
                                                 ))}
                                             </div>
                                         )}
                                     </div>
 
-                                    <div className="md:col-span-2 flex gap-2 justify-end">
-                                        <GhostButton onClick={() => nav('/contacts')}><X className="w-4 h-4" /> {t.contacts.cancel}</GhostButton>
-                                        <PrimaryButton disabled={!canSave} onClick={save}>
-                                            <Save className="w-4 h-4" /> {saving ? t.contacts.saving : t.contacts.save}
-                                        </PrimaryButton>
-                                    </div>
+                                    {/* Bottom action row (only in edit mode) */}
+                                    {editing && (
+                                        <div className="md:col-span-2 flex gap-2 justify-end">
+                                            <GhostButton onClick={cancel}><X className="w-4 h-4" /> {t.contacts.cancel}</GhostButton>
+                                            <PrimaryButton disabled={!canSave} onClick={save}>
+                                                <Save className="w-4 h-4" /> {saving ? t.contacts.saving : t.contacts.save}
+                                            </PrimaryButton>
+                                        </div>
+                                    )}
                                 </div>
                             </Section>
 
@@ -640,6 +729,7 @@ export default function ContactDetailPage() {
 // ---------- Details block ----------
 function DetailsBlock({ c }: { c: Contact }) {
     const [open, setOpen] = useState(true);
+    const sourceDisplay = c.sourceProvider ? `${c.source || '—'} · ${c.sourceProvider}` : (c.source || '—');
     return (
         <div className="card">
             <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b bg-gray-50/60 rounded-t-2xl">
@@ -653,8 +743,11 @@ function DetailsBlock({ c }: { c: Contact }) {
                             <dt className="text-gray-500">Lead Owner</dt>
                             <dd>{c.ownerName || '—'}</dd>
 
-                            <dt className="text-gray-500">Assigned To (ID)</dt>
-                            <dd>{c.assignedToUserId ?? '—'}</dd>
+                            <dt className="text-gray-500">Assigned To</dt>
+                            <dd>{c.assignedToName ? c.assignedToName : '—'}</dd>
+
+                            <dt className="text-gray-500">Created By</dt>
+                            <dd>{c.createdByName ?? '—'}</dd>
 
                             <dt className="text-gray-500">Duplicate Of</dt>
                             <dd>{c.duplicateOfId ?? '—'}</dd>
@@ -682,11 +775,11 @@ function DetailsBlock({ c }: { c: Contact }) {
                             <dt className="text-gray-500">Course</dt>
                             <dd>{c.courseName ? `${c.courseName} (${c.courseType || '—'})` : '—'}</dd>
 
-                            <dt className="text-gray-500">Modified By</dt>
-                            <dd>—</dd>
-
                             <dt className="text-gray-500">Referrer</dt>
                             <dd>{c.utmSource || '—'}</dd>
+
+                            <dt className="text-gray-500">Source</dt>
+                            <dd>{sourceDisplay}</dd>
                         </dl>
                     </div>
                 </CardBody>
