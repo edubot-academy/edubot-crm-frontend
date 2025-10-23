@@ -18,15 +18,12 @@ const schema = z.object({
     email: z.string().email({ message: 'Email туура эмес.' }).optional().or(z.literal('')),
     phone: z.string().optional().or(z.literal('')),
     source: z.enum(SOURCE_VALUES),
-    // only required when source is SOCIAL or ADS (validated in superRefine)
     sourceProvider: z.string().max(40, { message: 'Платформа 40 белгиден ашпоого тийиш.' }).optional().or(z.literal('')),
     consent: z.boolean(),
     message: z.string().max(1000, { message: 'Билдирүү 1000 белгиден ашпоого тийиш.' }).optional().or(z.literal('')),
-    // keep these on the form for analytics; backend accepts them now
     utmSource: z.string().max(80).optional().or(z.literal('')),
     utmMedium: z.string().max(80).optional().or(z.literal('')),
     utmCampaign: z.string().max(120).optional().or(z.literal('')),
-    // optional local-only fields (not sent)
     courseName: z.string().optional().or(z.literal('')),
     courseType: z.enum(['campus', 'online', 'hybrid']).optional().or(z.literal('')),
     preferredLang: z.enum(['kg', 'ru', 'en']),
@@ -88,7 +85,6 @@ export default function NewLeadModal({ open, onClose, onCreated }: Props) {
 
     React.useEffect(() => {
         if (!open) return;
-        // Prefill UTM from URL if exists
         const p = new URLSearchParams(window.location.search);
         const us = p.get('utm_source'); if (us) setValue('utmSource', us);
         const um = p.get('utm_medium'); if (um) setValue('utmMedium', um);
@@ -109,7 +105,6 @@ export default function NewLeadModal({ open, onClose, onCreated }: Props) {
             utmSource: values.utmSource?.trim() || null,
             utmMedium: values.utmMedium?.trim() || null,
             utmCampaign: values.utmCampaign?.trim() || null,
-            // consent / course* / preferredLang are *not* part of backend DTO right now
         };
 
         try {
@@ -135,13 +130,40 @@ export default function NewLeadModal({ open, onClose, onCreated }: Props) {
     return createPortal(
         <div aria-modal className="fixed inset-0 z-[100]">
             {/* Backdrop */}
-            <button aria-label="Жабуу" onClick={onClose} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <button
+                aria-label="Жабуу"
+                onClick={onClose}
+                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
             {/* Dialog */}
             <div className="absolute inset-x-0 top-10 mx-auto max-w-2xl">
-                <div className="rounded-2xl border bg-white shadow-xl">
-                    <div className="px-4 py-3 border-b flex items-center justify-between">
-                        <h2 className="font-semibold">Жаңы лид кошуу</h2>
-                        <button className="btn btn-ghost" onClick={onClose}>X</button>
+                <div
+                    className="
+            rounded-2xl border shadow-xl
+            bg-white border-gray-200
+            dark:bg-gray-900 dark:border-gray-800
+          "
+                >
+                    <div
+                        className="
+              px-4 py-3 border-b flex items-center justify-between rounded-t-2xl
+              bg-gray-50/60 border-gray-200
+              dark:bg-gray-800/60 dark:border-gray-800
+            "
+                    >
+                        <h2 className="font-semibold text-gray-900 dark:text-gray-100">Жаңы лид кошуу</h2>
+                        <button
+                            className="
+                btn btn-ghost
+                dark:text-gray-200 dark:hover:text-white
+                dark:hover:bg-gray-800
+              "
+                            onClick={onClose}
+                            aria-label="Жабуу"
+                            title="Жабуу"
+                        >
+                            X
+                        </button>
                     </div>
 
                     <div className="p-4">
@@ -172,8 +194,20 @@ export default function NewLeadModal({ open, onClose, onCreated }: Props) {
                                 </Field>
 
                                 <div className="flex items-center gap-2 mt-6">
-                                    <input id="consent" type="checkbox" {...register('consent')} />
-                                    <label htmlFor="consent" className="text-sm">Маркетингге макулдук</label>
+                                    <input
+                                        id="consent"
+                                        type="checkbox"
+                                        {...register('consent')}
+                                        className="
+                      h-4 w-4 rounded border-gray-300 text-emerald-600
+                      focus:ring-emerald-500
+                      dark:border-gray-700 dark:bg-gray-800
+                      dark:focus:ring-emerald-400
+                    "
+                                    />
+                                    <label htmlFor="consent" className="text-sm text-gray-800 dark:text-gray-200">
+                                        Маркетингге макулдук
+                                    </label>
                                 </div>
                             </div>
 
@@ -193,7 +227,15 @@ export default function NewLeadModal({ open, onClose, onCreated }: Props) {
                             </div>
 
                             <Field label="Билдирүү (каалоо-тилек)" error={errors.message?.message}>
-                                <textarea className="input min-h-[90px]" placeholder="Кыскача маалымат..." {...register('message')} />
+                                <textarea
+                                    className="
+                    input min-h-[90px] text-sm
+                    bg-white text-gray-900 placeholder-gray-400
+                    dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500
+                  "
+                                    placeholder="Кыскача маалымат..."
+                                    {...register('message')}
+                                />
                             </Field>
 
                             <div className="grid md:grid-cols-3 gap-4">
@@ -209,7 +251,9 @@ export default function NewLeadModal({ open, onClose, onCreated }: Props) {
                             </div>
 
                             <div className="flex items-center justify-end gap-2 pt-2">
-                                <GhostButton type="button" onClick={onClose}>Жокко чыгаруу</GhostButton>
+                                <GhostButton type="button" onClick={onClose}>
+                                    Жокко чыгаруу
+                                </GhostButton>
                                 <PrimaryButton type="submit" disabled={isSubmitting}>
                                     {isSubmitting ? 'Жүктөлүүдө...' : 'Сактоо'}
                                 </PrimaryButton>
@@ -226,9 +270,9 @@ export default function NewLeadModal({ open, onClose, onCreated }: Props) {
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
     return (
         <div>
-            <label className="block text-sm mb-1">{label}</label>
+            <label className="block text-sm mb-1 text-gray-700 dark:text-gray-300">{label}</label>
             {children}
-            {error ? <div className="text-xs text-red-600 mt-1">{error}</div> : null}
+            {error ? <div className="text-xs mt-1 text-red-600 dark:text-red-400">{error}</div> : null}
         </div>
     );
 }

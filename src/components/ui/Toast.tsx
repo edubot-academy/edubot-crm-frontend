@@ -31,15 +31,30 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     function getVariantClasses(v?: ToastVariant) {
         switch (v) {
             case 'success':
-                return 'border-emerald-500 bg-emerald-50 text-emerald-900';
+                return `
+          border-emerald-400/70 text-emerald-900 bg-emerald-50
+          dark:border-emerald-500/60 dark:text-emerald-100 dark:bg-emerald-900/70
+        `;
             case 'error':
-                return 'border-red-500 bg-red-50 text-red-900';
+                return `
+          border-red-400/70 text-red-900 bg-red-50
+          dark:border-red-500/60 dark:text-red-100 dark:bg-red-900/70
+        `;
             case 'warning':
-                return 'border-amber-500 bg-amber-50 text-amber-900';
+                return `
+          border-amber-400/70 text-amber-900 bg-amber-50
+          dark:border-amber-500/60 dark:text-amber-100 dark:bg-amber-900/70
+        `;
             case 'info':
-                return 'border-blue-500 bg-blue-50 text-blue-900';
+                return `
+          border-blue-400/70 text-blue-900 bg-blue-50
+          dark:border-blue-500/60 dark:text-blue-100 dark:bg-blue-900/70
+        `;
             default:
-                return 'border-slate-200 bg-white text-gray-900';
+                return `
+          border-slate-300 text-gray-900 bg-white
+          dark:border-gray-700 dark:text-gray-100 dark:bg-gray-900
+        `;
         }
     }
 
@@ -48,20 +63,31 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             {children}
             {createPortal(
                 <div
-                    className="fixed right-4 top-4 z-[9999] space-y-2 pointer-events-none"
+                    className="
+            fixed top-5 left-1/2 -translate-x-1/2 z-[9999]
+            flex flex-col items-center gap-2
+            pointer-events-none
+            w-full px-4
+          "
                     role="region"
                     aria-label="Toast notifications"
                 >
                     {toasts.map((t) => (
                         <div
                             key={t.id}
-                            className={`pointer-events-auto card shadow-sm animate-in fade-in slide-in-from-top-2 ${getVariantClasses(
-                                t.variant || 'info'
-                            )}`}
+                            className={`
+                pointer-events-auto
+                rounded-xl border shadow-lg ring-1 ring-black/5
+                backdrop-blur-sm
+                animate-in fade-in slide-in-from-top-2
+                max-w-md w-full
+                ${getVariantClasses(t.variant || 'info')}
+              `}
+                            role="status" aria-live="polite"
                         >
-                            <div className="card-body">
-                                {t.title && <div className="font-medium mb-1">{t.title}</div>}
-                                <div className="text-sm">{t.message}</div>
+                            <div className="p-3">
+                                {t.title && <div className="font-medium mb-0.5">{t.title}</div>}
+                                <div className="text-sm leading-relaxed">{t.message}</div>
                             </div>
                         </div>
                     ))}

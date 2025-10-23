@@ -46,10 +46,13 @@ export type Contact = {
 
     createdByUserId?: number | null;
     createdByName?: string | null;
+
+    // Read-only server-computed outreach metrics
+    contactAttempts?: number | null;
+    lastAttemptAt?: string | null;
 };
 
 type ListRes = { items: Contact[]; total: number; page: number; limit: number; totalPages: number };
-
 type UserLite = { id: number; fullName: string; role: 'sales' | 'assistant' | 'manager' | 'superadmin' };
 
 // All status filters ('' = all)
@@ -71,7 +74,7 @@ const RAW_STATUSES = [
     'ARCHIVED',
 ] as const;
 
-// Kyrgyz labels for dropdown/filter chips
+// Kyrgyz labels for dropdown/filter chips (UI-facing strings in Kyrgyz)
 const STATUS_LABELS: Record<(typeof RAW_STATUSES)[number], string> = {
     '': 'Баары',
     NEW: 'ЖАҢЫ',
@@ -146,12 +149,18 @@ function ConfirmDialog({
         <div className="fixed inset-0 z-[9998]">
             <div className="absolute inset-0 bg-black/40" onClick={loading ? undefined : onCancel} />
             <div className="absolute inset-0 flex items-center justify-center p-4">
-                <div className="w-full max-w-md rounded-2xl bg-white shadow-xl z-[9999]">
-                    <div className="p-5 border-b">
-                        <h3 className="text-lg font-semibold">{title}</h3>
+                <div
+                    className="
+            w-full max-w-md rounded-2xl shadow-xl z-[9999] border
+            bg-white border-gray-200
+            dark:bg-gray-900 dark:border-gray-800
+          "
+                >
+                    <div className="p-5 border-b border-gray-200 dark:border-gray-800">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
                     </div>
-                    <div className="p-5 text-sm text-gray-700 whitespace-pre-line">{message}</div>
-                    <div className="p-4 border-t flex justify-end gap-2">
+                    <div className="p-5 text-sm text-gray-700 dark:text-gray-200 whitespace-pre-line">{message}</div>
+                    <div className="p-4 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-2">
                         <button className="btn" onClick={onCancel} disabled={loading}>
                             {cancelText}
                         </button>
@@ -164,6 +173,7 @@ function ConfirmDialog({
         </div>
     );
 }
+
 
 export default function ContactsPage() {
     const init = useInitialFromUrl();
@@ -204,7 +214,7 @@ export default function ContactsPage() {
     const isAssistant = role === 'assistant';
     const isSales = role === 'sales';
 
-    // Debounce search
+    // Debounce search input
     useEffect(() => {
         const id = setTimeout(() => setQ(typedQ), 300);
         return () => clearTimeout(id);
@@ -222,9 +232,12 @@ export default function ContactsPage() {
     const load = useCallback(async () => {
         setLoading(true);
         setErr('');
+
+        // cancel previous in-flight
         abortRef.current?.abort();
         const ac = new AbortController();
         abortRef.current = ac;
+
         try {
             const { data } = await api.get<ListRes>(`/contacts?${params.toString()}`, { signal: ac.signal as any });
 
@@ -248,7 +261,14 @@ export default function ContactsPage() {
         }
     }, [params, toast, isSales, myId]);
 
-    useEffect(() => { void load(); }, [load]);
+    // initial + whenever params change
+    useEffect(() => {
+        void load();
+        return () => {
+            // abort on unmount or before next load
+            abortRef.current?.abort();
+        };
+    }, [load]);
 
     // Load assignables once (assistants/managers/superadmins need this)
     useEffect(() => {
@@ -268,8 +288,7 @@ export default function ContactsPage() {
                 }
             }
         }
-        fetchAssignables();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        void fetchAssignables();
     }, [isAssistant, isManager, isSuperadmin]);
 
     const totalPages = data?.totalPages ?? 1;
@@ -311,7 +330,7 @@ export default function ContactsPage() {
         }
     }
 
-    // Bulk actions (only superadmin per your requirement)
+    // Bulk actions (only superadmin per requirement)
     const openBulkDelete = () => setBulkMode('delete');
     const openBulkPurge = () => setBulkMode('purge');
 
@@ -358,11 +377,12 @@ export default function ContactsPage() {
         const prov = c.sourceProvider?.trim();
         return (
             <div className="text-sm">
-                <div className="font-medium">{src}</div>
-                {prov ? <div className="text-gray-600 text-xs">{prov}</div> : null}
+                <div className="font-medium text-gray-900 dark:text-gray-100">{src}</div>
+                {prov ? <div className="text-gray-600 dark:text-gray-400 text-xs">{prov}</div> : null}
             </div>
         );
     };
+
 
     // Bulk controls only for superadmin (manager removed)
     const canShowBulkControls = isSuperadmin;
@@ -410,6 +430,10 @@ export default function ContactsPage() {
         superadmin: 'Супер админ',
     };
 
+    // Compute dynamic column count for proper colSpan in skeleton/empty rows
+    const hasBulkCol = isSuperadmin; // only superadmin sees bulk checkbox column
+    const colCount = 6 + (hasBulkCol ? 1 : 0); // ID, Name, Status, Source, CreatedAt, Actions = 6 (+1 if bulk checkbox)
+
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -444,21 +468,22 @@ export default function ContactsPage() {
                                     setTypedQ(e.target.value);
                                 }}
                                 placeholder="Аты, email же телефон"
+                                aria-label="Издөө"
                             />
                             {typedQ && (
                                 <button
                                     type="button"
-                                    className="absolute right-8 bottom-3 text-gray-500 hover:text-gray-800"
+                                    className="absolute right-8 bottom-3 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
                                     aria-label="Тазалоо"
-                                    onClick={() => {
-                                        setTypedQ('');
-                                        setPage(1);
-                                    }}
+                                    onClick={() => { setTypedQ(''); setPage(1); }}
                                 >
                                     ×
                                 </button>
+
+
+
                             )}
-                            <Search size={16} className="absolute right-3 bottom-3 opacity-60" />
+                            <Search size={16} className="absolute right-3 bottom-3 opacity-60 text-gray-500 dark:text-gray-400" />
                         </div>
 
                         {/* Status */}
@@ -470,6 +495,7 @@ export default function ContactsPage() {
                                     setPage(1);
                                     setStatus(e.target.value);
                                 }}
+                                aria-label="Статус боюнча чыпкалоо"
                             >
                                 {RAW_STATUSES.map((s) => (
                                     <option key={s || 'ALL'} value={s}>
@@ -488,6 +514,7 @@ export default function ContactsPage() {
                                     setPage(1);
                                     setLimit(Number(e.target.value));
                                 }}
+                                aria-label="Беттеги сан"
                             >
                                 {[10, 20, 50].map((n) => (
                                     <option key={n} value={n}>
@@ -499,9 +526,9 @@ export default function ContactsPage() {
 
                         {/* Summary */}
                         <div className="flex items-end">
-                            <div className="text-sm text-gray-600">
+                            <div className="text-sm text-gray-600 dark:text-gray-300">
                                 Натыйжа: {data?.total ?? 0} • {t.contacts.page}: {data?.page ?? 1} / {data?.totalPages ?? 1}
-                                {err && <span className="ml-3 text-red-600">{err}</span>}
+                                {err && <span className="ml-3 text-red-600 dark:text-red-400">{err}</span>}
                             </div>
                         </div>
                     </div>
@@ -514,29 +541,92 @@ export default function ContactsPage() {
                     <div className="overflow-auto max-h-[70vh]">
                         <Table>
                             <THead>
-                                <tr>
+                                <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                                     {(isSuperadmin /* manager removed here */) && (
-                                        <th scope="col">
+                                        <th
+                                            scope="col"
+                                            className="
+          px-3 py-2 text-left text-sm font-semibold
+          bg-gray-50 text-gray-700
+          dark:bg-gray-800 dark:text-gray-200
+        "
+                                        >
                                             <input
                                                 type="checkbox"
                                                 checked={allOnPageSelected}
                                                 onChange={(e) => toggleSelectAll(e.target.checked)}
+                                                aria-label="Баарын тандоо"
                                             />
                                         </th>
                                     )}
-                                    <th scope="col">ID</th>
-                                    <th scope="col">Аты-жөнү</th>
-                                    <th scope="col">{t.contacts.status}</th>
-                                    <th scope="col">{t.contacts.source}</th>
-                                    <th scope="col">{t.contacts.createdAt}</th>
-                                    <th scope="col">{t.contacts.actions}</th>
+                                    <th
+                                        scope="col"
+                                        className="
+        px-3 py-2 text-left text-sm font-semibold
+        bg-gray-50 text-gray-700
+        dark:bg-gray-800 dark:text-gray-200
+      "
+                                    >
+                                        ID
+                                    </th>
+                                    <th
+                                        scope="col"
+                                        className="
+        px-3 py-2 text-left text-sm font-semibold
+        bg-gray-50 text-gray-700
+        dark:bg-gray-800 dark:text-gray-200
+      "
+                                    >
+                                        Аты-жөнү
+                                    </th>
+                                    <th
+                                        scope="col"
+                                        className="
+        px-3 py-2 text-left text-sm font-semibold
+        bg-gray-50 text-gray-700
+        dark:bg-gray-800 dark:text-gray-200
+      "
+                                    >
+                                        {t.contacts.status}
+                                    </th>
+                                    <th
+                                        scope="col"
+                                        className="
+        px-3 py-2 text-left text-sm font-semibold
+        bg-gray-50 text-gray-700
+        dark:bg-gray-800 dark:text-gray-200
+      "
+                                    >
+                                        {t.contacts.source}
+                                    </th>
+                                    <th
+                                        scope="col"
+                                        className="
+        px-3 py-2 text-left text-sm font-semibold
+        bg-gray-50 text-gray-700
+        dark:bg-gray-800 dark:text-gray-200
+      "
+                                    >
+                                        {t.contacts.createdAt}
+                                    </th>
+                                    <th
+                                        scope="col"
+                                        className="
+        px-3 py-2 text-left text-sm font-semibold
+        bg-gray-50 text-gray-700
+        dark:bg-gray-800 dark:text-gray-200
+      "
+                                    >
+                                        {t.contacts.actions}
+                                    </th>
                                 </tr>
                             </THead>
+
                             <TBody>
                                 {loading &&
                                     Array.from({ length: 6 }).map((_, i) => (
                                         <tr key={i} className="border-t">
-                                            <td colSpan={7}>
+                                            <td colSpan={colCount}>
                                                 <Skeleton className="h-8 w-full" />
                                             </td>
                                         </tr>
@@ -544,7 +634,7 @@ export default function ContactsPage() {
 
                                 {!loading && (data?.items?.length ?? 0) === 0 && (
                                     <tr>
-                                        <td colSpan={7} className="p-8 text-center text-gray-500">
+                                        <td colSpan={colCount} className="p-8 text-center text-gray-500 dark:text-gray-400">
                                             {t.contacts.empty}
                                         </td>
                                     </tr>
@@ -556,7 +646,7 @@ export default function ContactsPage() {
                                     return (
                                         <tr
                                             key={c.id}
-                                            className="border-t hover:bg-gray-50 cursor-pointer"
+                                            className="border-t hover:bg-gray-50 cursor-pointer border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer transition-colors"
                                             onClick={(e) => {
                                                 if (!(e.target as HTMLElement).closest('a,button,input,select')) nav(`/contacts/${c.id}`);
                                             }}
@@ -570,26 +660,46 @@ export default function ContactsPage() {
                                                             if (e.target.checked) setSelected((s) => [...s, c.id]);
                                                             else setSelected((s) => s.filter((id) => id !== c.id));
                                                         }}
+                                                        aria-label={`Тандоо #${c.id}`}
                                                     />
                                                 </td>
                                             )}
+
                                             <td scope="row" className="font-mono">
                                                 {c.id}
                                             </td>
+
                                             <td className="font-medium">
                                                 <div>{c.fullName}</div>
                                             </td>
+
                                             <td>
-                                                <StatusBadge status={c.status} />
+                                                <div className="flex items-center gap-2">
+                                                    <StatusBadge status={c.status} />
+                                                    {typeof c.contactAttempts === 'number' && c.contactAttempts > 0 && (
+                                                        <span
+                                                            className="
+      inline-flex items-center px-2 py-0.5 text-xs rounded-full border
+      bg-gray-50 border-gray-200 text-gray-700
+      dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100
+    "
+                                                        >
+                                                            {c.contactAttempts}
+                                                        </span>
+                                                    )}
+
+                                                </div>
                                             </td>
+
                                             <td>{renderSource(c)}</td>
+
                                             <td>{new Date(c.createdAt).toLocaleString()}</td>
 
                                             <td className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                                 {/* View */}
-                                                <Link to={`/contacts/${c.id}`} className="btn btn-ghost text-emerald-700">
+                                                {/* <Link to={`/contacts/${c.id}`} className="btn btn-ghost text-emerald-700">
                                                     {t.contacts.view}
-                                                </Link>
+                                                </Link> */}
 
                                                 {/* Assign dropdown: assistant/manager/superadmin */}
                                                 {(isAssistant || isManager || isSuperadmin) && (
@@ -599,6 +709,7 @@ export default function ContactsPage() {
                                                             onChange={(e) => onAssignChange(c.id, e.target.value)}
                                                             disabled={busy || assignables.length === 0}
                                                             title="Жооптуу адам"
+                                                            aria-label="Жооптуу адам"
                                                         >
                                                             <option value="">{busy ? 'Жүктөлүүдө...' : '— (Дайындалган жок)'}</option>
                                                             {assignables.map((u) => (

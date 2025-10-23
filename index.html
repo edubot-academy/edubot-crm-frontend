@@ -10,6 +10,15 @@
 
 <body>
   <div id="root"></div>
+  <script>
+    (() => {
+      try {
+        const saved = localStorage.theme;
+        const dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.classList.toggle('dark', dark);
+      } catch { }
+    })();
+  </script>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 

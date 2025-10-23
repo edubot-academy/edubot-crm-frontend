@@ -1,22 +1,46 @@
-export function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-    return <div className={`card ${className}`}>{children}</div>;
+import React from 'react';
+import clsx from 'clsx';
+
+export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+    return (
+        <div
+            className={clsx(
+                'rounded-2xl border bg-white border-gray-200',
+                'dark:bg-gray-900 dark:border-gray-800',
+                className
+            )}
+            {...props}
+        />
+    );
 }
 export function CardHeader({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-    return <div className={`card-header ${className}`}>{children}</div>;
-}
-export function CardBody({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-    return <div className={`card-body ${className}`}>{children}</div>;
+    return (
+        <div className={clsx('px-4 pt-4 pb-2 border-b bg-gray-50/60 rounded-t-2xl',
+            'dark:bg-gray-800/60 dark:border-gray-800', className)}>
+            {children}
+        </div>
+    );
 }
 
-// A larger panel with inner header like in CRM UIs
-export function Section({ title, right, children }: { title: React.ReactNode; right?: React.ReactNode; children: React.ReactNode }) {
+
+export function CardBody({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+    return <div className={clsx('p-4', className)} {...props} />;
+}
+
+export function Section({
+    title,
+    children,
+    className,
+}: React.PropsWithChildren<{ title?: string; className?: string }>) {
     return (
-        <div className="card">
-            <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b bg-gray-50/60 rounded-t-2xl">
-                <div className="font-medium">{title}</div>
-                {right}
-            </div>
-            <div className="card-body">{children}</div>
-        </div>
+        <Card className={className}>
+            {title && (
+                <div className="px-4 pt-4 pb-2 border-b bg-gray-50/60 rounded-t-2xl
+                        dark:bg-gray-800/60 dark:border-gray-800">
+                    <div className="font-medium">{title}</div>
+                </div>
+            )}
+            <CardBody>{children}</CardBody>
+        </Card>
     );
 }

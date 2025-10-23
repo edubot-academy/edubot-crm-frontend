@@ -23,9 +23,7 @@ type InviteRes = { userId: number; inviteLink: string; inviteToken: string };
 type Props = {
     open: boolean;
     onClose: () => void;
-    // Optional: after successful creation
     onCreated?: (payload: InviteRes) => void;
-    // Who is using the modal (to limit role options in UI)
     currentUserRole: UserRole;
 };
 
@@ -38,8 +36,7 @@ const schema = z.object({
 
 export default function NewUserModal({ open, onClose, onCreated, currentUserRole }: Props) {
     const toast = useToast();
-    console.log(currentUserRole);
-    // Allowed roles per current user
+
     const roleOptions: { value: UserRole; label: string }[] =
         currentUserRole === 'superadmin'
             ? [
@@ -49,9 +46,7 @@ export default function NewUserModal({ open, onClose, onCreated, currentUserRole
                 { value: 'superadmin', label: 'СУПЕРАДМИН (superadmin)' },
             ]
             : currentUserRole === 'manager'
-                ? [
-                    { value: 'sales', label: 'САТУУЧУ (sales)' },
-                ]
+                ? [{ value: 'sales', label: 'САТУУЧУ (sales)' }]
                 : [];
 
     const {
@@ -64,7 +59,6 @@ export default function NewUserModal({ open, onClose, onCreated, currentUserRole
         defaultValues: { fullName: '', email: '', role: roleOptions[0]?.value },
     });
 
-    // Success state (shows invite link + token)
     const [success, setSuccess] = React.useState<InviteRes | null>(null);
 
     const onSubmit: SubmitHandler<CreateUserDto> = async (values) => {
@@ -88,7 +82,6 @@ export default function NewUserModal({ open, onClose, onCreated, currentUserRole
 
             reset();
         } catch (err: any) {
-            // Try to pull a friendly message from Nest validation/HTTP errors
             if (err?.response?.status === 409) {
                 toast.push({ title: 'Ката', message: 'Бул email менен колдонуучу мурда бар.', variant: 'error' });
                 return;
@@ -96,38 +89,58 @@ export default function NewUserModal({ open, onClose, onCreated, currentUserRole
 
             const raw = err?.response?.data?.message ?? err?.message ?? 'Кошууда ката кетти.';
             const message =
-                Array.isArray(raw) ? raw.join('\n') :
-                    typeof raw === 'object' ? JSON.stringify(raw) :
-                        String(raw);
+                Array.isArray(raw) ? raw.join('\n') : typeof raw === 'object' ? JSON.stringify(raw) : String(raw);
 
-            toast.push({
-                title: 'Ката',
-                message,
-                variant: 'error',
-            });
+            toast.push({ title: 'Ката', message, variant: 'error' });
         }
     };
-
 
     if (!open) return null;
 
     return createPortal(
         <div aria-modal className="fixed inset-0 z-[100]">
             {/* Backdrop */}
-            <button aria-label="Жабуу" onClick={onClose} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <button
+                aria-label="Жабуу"
+                onClick={onClose}
+                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
             {/* Dialog */}
             <div className="absolute inset-x-0 top-10 mx-auto max-w-xl">
-                <div className="rounded-2xl border bg-white shadow-xl">
-                    <div className="px-4 py-3 border-b flex items-center justify-between">
-                        <h2 className="font-semibold">{success ? 'Чакыруу түзүлдү' : 'Жаңы колдонуучу кошуу'}</h2>
-                        <button className="btn btn-ghost" onClick={onClose}>X</button>
+                <div
+                    className="
+            rounded-2xl border shadow-xl
+            bg-white border-gray-200
+            dark:bg-gray-900 dark:border-gray-800
+          "
+                    role="dialog"
+                    aria-labelledby="new-user-title"
+                >
+                    <div
+                        className="
+              px-4 py-3 border-b flex items-center justify-between rounded-t-2xl
+              bg-gray-50/60 border-gray-200
+              dark:bg-gray-800/60 dark:border-gray-800
+            "
+                    >
+                        <h2 id="new-user-title" className="font-semibold text-gray-900 dark:text-gray-100">
+                            {success ? 'Чакыруу түзүлдү' : 'Жаңы колдонуучу кошуу'}
+                        </h2>
+                        <button
+                            className="btn btn-ghost dark:text-gray-200 dark:hover:text-white dark:hover:bg-gray-800"
+                            onClick={onClose}
+                            aria-label="Жабуу"
+                            title="Жабуу"
+                        >
+                            X
+                        </button>
                     </div>
 
                     <div className="p-4">
                         {!success ? (
                             roleOptions.length === 0 ? (
-                                <div className="text-sm text-red-600">
-                                    Бул иш-аракетке уруксат жок. Жаңы колдонуучуну **менеджер** же **суперадмин** гана кошо алат.
+                                <div className="text-sm text-red-600 dark:text-red-400">
+                                    Бул иш-аракетке уруксат жок. Жаңы колдонуучуну <b>менеджер</b> же <b>суперадмин</b> гана кошо алат.
                                 </div>
                             ) : (
                                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -141,14 +154,18 @@ export default function NewUserModal({ open, onClose, onCreated, currentUserRole
 
                                     <Field label="Роль *" error={errors.role?.message}>
                                         <Select {...register('role')}>
-                                            {roleOptions.map(r => (
-                                                <option key={r.value} value={r.value}>{r.label}</option>
+                                            {roleOptions.map((r) => (
+                                                <option key={r.value} value={r.value}>
+                                                    {r.label}
+                                                </option>
                                             ))}
                                         </Select>
                                     </Field>
 
                                     <div className="flex items-center justify-end gap-2">
-                                        <GhostButton type="button" onClick={onClose}>Жокко чыгаруу</GhostButton>
+                                        <GhostButton type="button" onClick={onClose}>
+                                            Жокко чыгаруу
+                                        </GhostButton>
                                         <PrimaryButton type="submit" disabled={isSubmitting}>
                                             {isSubmitting ? 'Жүктөлүүдө...' : 'Чакыруу жөнөтүү'}
                                         </PrimaryButton>
@@ -170,42 +187,99 @@ export default function NewUserModal({ open, onClose, onCreated, currentUserRole
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
     return (
         <div>
-            <label className="block text-sm mb-1">{label}</label>
+            <label className="block text-sm mb-1 text-gray-700 dark:text-gray-300">{label}</label>
             {children}
-            {error ? <div className="text-xs text-red-600 mt-1">{error}</div> : null}
+            {error ? <div className="text-xs text-red-600 dark:text-red-400 mt-1">{error}</div> : null}
         </div>
     );
 }
 
-function SuccessInviteCard({ data, onClose, onReset }: { data: { userId: number; inviteLink: string; inviteToken: string }, onClose: () => void, onReset: () => void }) {
+function SuccessInviteCard({
+    data,
+    onClose,
+    onReset,
+}: {
+    data: { userId: number; inviteLink: string; inviteToken: string };
+    onClose: () => void;
+    onReset: () => void;
+}) {
     function copy(text: string) {
         navigator.clipboard?.writeText(text);
     }
     return (
         <div className="space-y-4">
-            <div className="text-sm">
+            <div className="text-sm text-gray-800 dark:text-gray-200">
                 Колдонуучу ийгиликтүү түзүлдү. Чакыруу шилтемеси email аркылуу жөнөтүлдү.
             </div>
 
-            <div className="rounded-xl border p-3 bg-gray-50">
-                <div className="text-xs text-gray-500">Колдонуучу ID</div>
-                <div className="font-mono text-sm">{data.userId}</div>
+            <div
+                className="
+          rounded-xl border p-3
+          bg-gray-50 border-gray-200
+          dark:bg-gray-800 dark:border-gray-700
+        "
+            >
+                <div className="text-xs text-gray-500 dark:text-gray-400">Колдонуучу ID</div>
+                <div className="font-mono text-sm text-gray-900 dark:text-gray-100">{data.userId}</div>
             </div>
 
-            <div className="rounded-xl border p-3">
-                <div className="text-xs text-gray-500 mb-1">Чакыруу шилтемеси</div>
+            <div
+                className="
+          rounded-xl border p-3
+          bg-white border-gray-200
+          dark:bg-gray-900 dark:border-gray-700
+        "
+            >
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Чакыруу шилтемеси</div>
                 <div className="flex items-center gap-2">
-                    <input className="input flex-1 text-xs" readOnly value={data.inviteLink} />
-                    <SubtleButton onClick={() => copy(data.inviteLink)}>Көчүрүү</SubtleButton>
-                    <SubtleButton onClick={() => window.open(data.inviteLink, '_blank', 'noopener,noreferrer')}>Ачуy</SubtleButton>
+                    <input
+                        className="
+              input flex-1 text-xs
+              bg-white text-gray-900 placeholder-gray-400
+              dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500
+            "
+                        readOnly
+                        value={data.inviteLink}
+                    />
+                    <SubtleButton
+                        className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                        onClick={() => copy(data.inviteLink)}
+                    >
+                        Көчүрүү
+                    </SubtleButton>
+                    <SubtleButton
+                        className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                        onClick={() => window.open(data.inviteLink, '_blank', 'noopener,noreferrer')}
+                    >
+                        Ачуy
+                    </SubtleButton>
                 </div>
             </div>
 
-            <div className="rounded-xl border p-3">
-                <div className="text-xs text-gray-500 mb-1">Чакыруу токени</div>
+            <div
+                className="
+          rounded-xl border p-3
+          bg-white border-gray-200
+          dark:bg-gray-900 dark:border-gray-700
+        "
+            >
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Чакыруу токени</div>
                 <div className="flex items-center gap-2">
-                    <input className="input flex-1 text-xs" readOnly value={data.inviteToken} />
-                    <SubtleButton onClick={() => copy(data.inviteToken)}>Көчүрүү</SubtleButton>
+                    <input
+                        className="
+              input flex-1 text-xs
+              bg-white text-gray-900 placeholder-gray-400
+              dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500
+            "
+                        readOnly
+                        value={data.inviteToken}
+                    />
+                    <SubtleButton
+                        className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                        onClick={() => copy(data.inviteToken)}
+                    >
+                        Көчүрүү
+                    </SubtleButton>
                 </div>
             </div>
 
