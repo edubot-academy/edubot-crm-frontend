@@ -8,7 +8,7 @@ import { ToastProvider } from '@/components/ui/Toast';
 import { JSX } from 'react';
 import AdminPage from '@/pages/admin/AdminPage';
 import RequireRole from '@/auth/RequireRole';
-import { UserRole } from '@/auth/user-role';
+import { UserRole } from '@/lib/constants/roles';
 import AcceptInvitePage from '@/pages/AcceptInvitePage';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -35,7 +35,7 @@ export default function App() {
                   <Route
                     path="/admin"
                     element={
-                      <RequireRole allow={['manager', 'superadmin'] as UserRole[]} useAuthHook={() => ({ user: currentUser() })}>
+                      <RequireRole allow={['manager', 'admin', 'superadmin'] as UserRole[]} useAuthHook={() => ({ user: currentUser() })}>
                         <AdminPage />
                       </RequireRole>
                     }

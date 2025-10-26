@@ -112,8 +112,8 @@ export default function ContactDetailPage() {
     const toast = useToast();
 
     const me = currentUser();
-    const role = me?.role as 'sales' | 'assistant' | 'manager' | 'superadmin' | undefined;
-    const canEdit = role === 'sales' || role === 'manager' || role === 'superadmin';
+    const role = me?.role as 'sales' | 'assistant' | 'manager' | 'admin' | 'superadmin' | undefined;
+    const canEdit = role === 'sales' || role === 'manager' || role === 'admin' || role === 'superadmin';
     const isSalesOrManager = role === 'sales' || role === 'manager';
 
     const [tab, setTab] = useState<'overview' | 'timeline'>('overview');
@@ -384,8 +384,16 @@ export default function ContactDetailPage() {
 
     // Page wrapper adopts dark text defaults like the login page
     return (
-        <div className="max-w-6xl mx-auto space-y-5 pb-16 px-4 text-gray-900 dark:text-gray-100">
+        <div
+            className="
+    max-w-6xl w-full mx-auto
+    flex-1 min-w-0 shrink-0
+    space-y-5 pb-16 lg:px-4
+    text-gray-900 dark:text-gray-100
+  "
+        >
             <ContactDetailSection ctx={ctx} />
         </div>
+
     );
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { createPortal } from 'react-dom';
+import Modal from '@/components/ui/Modal';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,6 +9,8 @@ import { PrimaryButton, GhostButton } from '@/components/ui/Button';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import type { SubmitHandler } from 'react-hook-form';
+import { ChevronDown } from 'lucide-react';
+import clsx from 'clsx';
 
 // Keep in sync with backend ContactSource enum
 const SOURCE_VALUES = ['WEBSITE', 'MANUAL', 'SOCIAL', 'ADS', 'REFERRAL', 'CALL', 'IMPORT'] as const;
@@ -26,7 +28,6 @@ const schema = z.object({
     utmCampaign: z.string().max(120).optional().or(z.literal('')),
     courseName: z.string().optional().or(z.literal('')),
     courseType: z.enum(['campus', 'online', 'hybrid']).optional().or(z.literal('')),
-    preferredLang: z.enum(['kg', 'ru', 'en']),
 }).superRefine((val, ctx) => {
     const hasEmail = !!val.email && val.email.trim() !== '';
     const hasPhone = !!val.phone && val.phone.trim() !== '';
@@ -58,9 +59,15 @@ type Props = {
 
 export default function NewLeadModal({ open, onClose, onCreated }: Props) {
     const toast = useToast();
+    const [showAdvanced, setShowAdvanced] = React.useState(false);
+
     const {
-        register, handleSubmit, formState: { errors, isSubmitting },
-        setValue, reset, watch,
+        register,
+        handleSubmit,
+        formState: { errors, isSubmitting },
+        setValue,
+        reset,
+        watch,
     } = useForm<FormValues>({
         resolver: zodResolver(schema),
         defaultValues: {
@@ -76,13 +83,13 @@ export default function NewLeadModal({ open, onClose, onCreated }: Props) {
             utmCampaign: '',
             courseName: '',
             courseType: undefined,
-            preferredLang: 'kg',
         },
     });
 
     const source = watch('source');
     const showProvider = source === 'SOCIAL' || source === 'ADS';
 
+    // Prefill UTM from URL when opened
     React.useEffect(() => {
         if (!open) return;
         const p = new URLSearchParams(window.location.search);
@@ -125,151 +132,144 @@ export default function NewLeadModal({ open, onClose, onCreated }: Props) {
         }
     };
 
-    if (!open) return null;
-
-    return createPortal(
-        <div aria-modal className="fixed inset-0 z-[100]">
-            {/* Backdrop */}
-            <button
-                aria-label="Жабуу"
-                onClick={onClose}
-                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            />
-            {/* Dialog */}
-            <div className="absolute inset-x-0 top-10 mx-auto max-w-2xl">
-                <div
-                    className="
-            rounded-2xl border shadow-xl
-            bg-white border-gray-200
-            dark:bg-gray-900 dark:border-gray-800
-          "
-                >
-                    <div
-                        className="
-              px-4 py-3 border-b flex items-center justify-between rounded-t-2xl
-              bg-gray-50/60 border-gray-200
-              dark:bg-gray-800/60 dark:border-gray-800
-            "
+    return (
+        <Modal
+            open={open}
+            onClose={() => {
+                reset();
+                onClose();
+            }}
+            title="Жаңы лид кошуу"
+            size="xl"
+            className="sm:max-w-2xl" // match previous md:max-w-2xl
+            footer={
+                <div className="flex items-center justify-end gap-2 w-full">
+                    <GhostButton
+                        type="button"
+                        onClick={() => {
+                            reset();
+                            onClose();
+                        }}
                     >
-                        <h2 className="font-semibold text-gray-900 dark:text-gray-100">Жаңы лид кошуу</h2>
-                        <button
+                        Жокко чыгаруу
+                    </GhostButton>
+                    <PrimaryButton
+                        type="submit"
+                        form="new-lead-form"
+                        disabled={isSubmitting}
+                        onClick={() => (document.activeElement as HTMLElement)?.blur()}
+                    >
+                        {isSubmitting ? 'Жүктөлүүдө...' : 'Сактоо'}
+                    </PrimaryButton>
+                </div>
+            }
+        >
+            <form id="new-lead-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
+                {/* Essentials */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                    <Field label="Аты-жөнү *" error={errors.fullName?.message}>
+                        <Input placeholder="Асан Үсөн" autoFocus {...register('fullName')} />
+                    </Field>
+
+                    <Field label="Булагы">
+                        <Select {...register('source')}>
+                            {SOURCE_VALUES.map((v) => (
+                                <option key={v} value={v}>{v}</option>
+                            ))}
+                        </Select>
+                    </Field>
+
+                    {showProvider && (
+                        <Field label="Платформа" error={errors.sourceProvider?.message}>
+                            <Input placeholder="instagram / telegram / tiktok ..." {...register('sourceProvider')} />
+                        </Field>
+                    )}
+
+                    <Field label="Email" error={errors.email?.message}>
+                        <Input placeholder="user@example.com" {...register('email')} />
+                    </Field>
+
+                    <Field label="Телефон" error={errors.phone?.message}>
+                        <Input placeholder="+996700000000" {...register('phone')} />
+                    </Field>
+
+                    <div className="flex items-center gap-2 md:mt-6">
+                        <input
+                            id="consent"
+                            type="checkbox"
+                            {...register('consent')}
                             className="
-                btn btn-ghost
-                dark:text-gray-200 dark:hover:text-white
-                dark:hover:bg-gray-800
+                h-4 w-4 rounded border-gray-300 text-emerald-600
+                focus:ring-emerald-500
+                dark:border-gray-700 dark:bg-gray-800
+                dark:focus:ring-emerald-400
               "
-                            onClick={onClose}
-                            aria-label="Жабуу"
-                            title="Жабуу"
-                        >
-                            X
-                        </button>
-                    </div>
-
-                    <div className="p-4">
-                        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                            <div className="grid md:grid-cols-2 gap-4">
-                                <Field label="Аты-жөнү *" error={errors.fullName?.message}>
-                                    <Input placeholder="Асан Үсөн" {...register('fullName')} />
-                                </Field>
-
-                                <Field label="Булагы">
-                                    <Select {...register('source')}>
-                                        {SOURCE_VALUES.map(v => <option key={v} value={v}>{v}</option>)}
-                                    </Select>
-                                </Field>
-
-                                {showProvider && (
-                                    <Field label="Платформа" error={errors.sourceProvider?.message}>
-                                        <Input placeholder="instagram / telegram / tiktok ..." {...register('sourceProvider')} />
-                                    </Field>
-                                )}
-
-                                <Field label="Email" error={errors.email?.message}>
-                                    <Input placeholder="user@example.com" {...register('email')} />
-                                </Field>
-
-                                <Field label="Телефон" error={errors.phone?.message}>
-                                    <Input placeholder="+996700000000" {...register('phone')} />
-                                </Field>
-
-                                <div className="flex items-center gap-2 mt-6">
-                                    <input
-                                        id="consent"
-                                        type="checkbox"
-                                        {...register('consent')}
-                                        className="
-                      h-4 w-4 rounded border-gray-300 text-emerald-600
-                      focus:ring-emerald-500
-                      dark:border-gray-700 dark:bg-gray-800
-                      dark:focus:ring-emerald-400
-                    "
-                                    />
-                                    <label htmlFor="consent" className="text-sm text-gray-800 dark:text-gray-200">
-                                        Маркетингге макулдук
-                                    </label>
-                                </div>
-                            </div>
-
-                            {/* Optional local-only fields for later use */}
-                            <div className="grid md:grid-cols-2 gap-4">
-                                <Field label="Курс (аты)">
-                                    <Input placeholder="frontend, backend..." {...register('courseName')} />
-                                </Field>
-                                <Field label="Курс түрү">
-                                    <Select {...register('courseType')}>
-                                        <option value="">—</option>
-                                        <option value="campus">campus</option>
-                                        <option value="online">online</option>
-                                        <option value="hybrid">hybrid</option>
-                                    </Select>
-                                </Field>
-                            </div>
-
-                            <Field label="Билдирүү (каалоо-тилек)" error={errors.message?.message}>
-                                <textarea
-                                    className="
-                    input min-h-[90px] text-sm
-                    bg-white text-gray-900 placeholder-gray-400
-                    dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500
-                  "
-                                    placeholder="Кыскача маалымат..."
-                                    {...register('message')}
-                                />
-                            </Field>
-
-                            <div className="grid md:grid-cols-3 gap-4">
-                                <Field label="utm_source">
-                                    <Input placeholder="instagram / meta / google ..." {...register('utmSource')} />
-                                </Field>
-                                <Field label="utm_medium">
-                                    <Input placeholder="bio / cpc / story / ..." {...register('utmMedium')} />
-                                </Field>
-                                <Field label="utm_campaign">
-                                    <Input placeholder="sept_launch" {...register('utmCampaign')} />
-                                </Field>
-                            </div>
-
-                            <div className="flex items-center justify-end gap-2 pt-2">
-                                <GhostButton type="button" onClick={onClose}>
-                                    Жокко чыгаруу
-                                </GhostButton>
-                                <PrimaryButton type="submit" disabled={isSubmitting}>
-                                    {isSubmitting ? 'Жүктөлүүдө...' : 'Сактоо'}
-                                </PrimaryButton>
-                            </div>
-                        </form>
+                        />
+                        <label htmlFor="consent" className="text-sm text-gray-800 dark:text-gray-200">
+                            Маркетингге макулдук
+                        </label>
                     </div>
                 </div>
-            </div>
-        </div>,
-        document.body
+
+                {/* Advanced (collapsible on mobile) */}
+                <div className="border-t border-gray-200 dark:border-gray-800 pt-3 md:pt-4">
+                    <button
+                        type="button"
+                        onClick={() => setShowAdvanced((v) => !v)}
+                        aria-expanded={showAdvanced}
+                        className="md:hidden w-full flex items-center justify-between text-sm font-medium px-2 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
+                    >
+                        Кошумча талаалар
+                        <ChevronDown size={16} className={`transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    <div className={`grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 ${showAdvanced ? '' : 'hidden md:grid'}`}>
+                        <Field label="Курс (аты)">
+                            <Input placeholder="frontend, backend..." {...register('courseName')} />
+                        </Field>
+
+                        <Field label="Курс түрү">
+                            <Select {...register('courseType')}>
+                                <option value="">—</option>
+                                <option value="campus">campus</option>
+                                <option value="online">online</option>
+                                <option value="hybrid">hybrid</option>
+                            </Select>
+                        </Field>
+
+                        <Field className="md:col-span-2" label="Билдирүү (каалоо-тилек)" error={errors.message?.message}>
+                            <textarea
+                                className="
+                  input min-h-[84px] md:min-h-[100px] text-sm
+                  bg-white text-gray-900 placeholder-gray-400
+                  dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500
+                "
+                                placeholder="Кыскача маалымат..."
+                                {...register('message')}
+                            />
+                        </Field>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 md:col-span-2">
+                            <Field label="utm_source">
+                                <Input placeholder="instagram / meta / google ..." {...register('utmSource')} />
+                            </Field>
+                            <Field label="utm_medium">
+                                <Input placeholder="bio / cpc / story / ..." {...register('utmMedium')} />
+                            </Field>
+                            <Field label="utm_campaign">
+                                <Input placeholder="sept_launch" {...register('utmCampaign')} />
+                            </Field>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </Modal>
     );
 }
 
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+function Field({ label, error, children, className }: { label: string; error?: string; children: React.ReactNode; className?: string }) {
     return (
-        <div>
+        <div className={clsx(className)}>
             <label className="block text-sm mb-1 text-gray-700 dark:text-gray-300">{label}</label>
             {children}
             {error ? <div className="text-xs mt-1 text-red-600 dark:text-red-400">{error}</div> : null}

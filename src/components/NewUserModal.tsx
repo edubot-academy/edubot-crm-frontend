@@ -1,23 +1,19 @@
 import React from 'react';
-import { createPortal } from 'react-dom';
 import { useForm } from 'react-hook-form';
 import type { SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import { PrimaryButton, GhostButton, SubtleButton } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
+import clsx from 'clsx';
 
-export type UserRole = 'sales' | 'assistant' | 'manager' | 'superadmin';
+export type UserRole = 'sales' | 'assistant' | 'manager' | 'admin' | 'superadmin';
 
-type CreateUserDto = {
-    fullName: string;
-    email: string;
-    role: UserRole;
-};
-
+type CreateUserDto = { fullName: string; email: string; role: UserRole };
 type InviteRes = { userId: number; inviteLink: string; inviteToken: string };
 
 type Props = {
@@ -27,11 +23,10 @@ type Props = {
     currentUserRole: UserRole;
 };
 
-// Zod schema (client-side validation)
 const schema = z.object({
     fullName: z.string().min(2, { message: 'Аты-жөнү 2 белгиден кыска болбошу керек.' }).max(160, { message: 'Аты-жөнү 160 белгиден ашпоого тийиш.' }),
     email: z.string().email({ message: 'Email форматы туура эмес.' }).max(160, { message: 'Email 160 белгиден ашпоого тийиш.' }),
-    role: z.enum(['sales', 'assistant', 'manager', 'superadmin'], { message: 'Роль тандаңыз.' }),
+    role: z.enum(['sales', 'assistant', 'manager', 'admin', 'superadmin'], { message: 'Роль тандаңыз.' }),
 });
 
 export default function NewUserModal({ open, onClose, onCreated, currentUserRole }: Props) {
@@ -43,11 +38,19 @@ export default function NewUserModal({ open, onClose, onCreated, currentUserRole
                 { value: 'sales', label: 'САТУУЧУ (sales)' },
                 { value: 'assistant', label: 'АССИСТЕНТ (assistant)' },
                 { value: 'manager', label: 'МЕНЕДЖЕР (manager)' },
+                { value: 'admin', label: 'АДМИН (admin)' },
                 { value: 'superadmin', label: 'СУПЕРАДМИН (superadmin)' },
             ]
-            : currentUserRole === 'manager'
-                ? [{ value: 'sales', label: 'САТУУЧУ (sales)' }]
-                : [];
+            : currentUserRole === 'admin'
+                ? [
+                    { value: 'sales', label: 'САТУУЧУ (sales)' },
+                    { value: 'assistant', label: 'АССИСТЕНТ (assistant)' },
+                    { value: 'manager', label: 'МЕНЕДЖЕР (manager)' },
+                    { value: 'admin', label: 'АДМИН (admin)' },
+                ]
+                : currentUserRole === 'manager'
+                    ? [{ value: 'sales', label: 'САТУУЧУ (sales)' }]
+                    : [];
 
     const {
         register,
@@ -68,122 +71,96 @@ export default function NewUserModal({ open, onClose, onCreated, currentUserRole
                 email: values.email.trim(),
                 role: values.role,
             };
-
             const { data } = await api.post<InviteRes>('/users', payload);
-
             setSuccess(data);
             onCreated?.(data);
-
-            toast.push({
-                title: 'OK',
-                message: 'Колдонуучу кошулду жана чакыруу жиберилди.',
-                variant: 'success',
-            });
-
+            toast.push({ title: 'OK', message: 'Колдонуучу кошулду жана чакыруу жиберилди.', variant: 'success' });
             reset();
         } catch (err: any) {
             if (err?.response?.status === 409) {
                 toast.push({ title: 'Ката', message: 'Бул email менен колдонуучу мурда бар.', variant: 'error' });
                 return;
             }
-
             const raw = err?.response?.data?.message ?? err?.message ?? 'Кошууда ката кетти.';
-            const message =
-                Array.isArray(raw) ? raw.join('\n') : typeof raw === 'object' ? JSON.stringify(raw) : String(raw);
-
+            const message = Array.isArray(raw) ? raw.join('\n') : typeof raw === 'object' ? JSON.stringify(raw) : String(raw);
             toast.push({ title: 'Ката', message, variant: 'error' });
         }
     };
 
-    if (!open) return null;
-
-    return createPortal(
-        <div aria-modal className="fixed inset-0 z-[100]">
-            {/* Backdrop */}
-            <button
-                aria-label="Жабуу"
-                onClick={onClose}
-                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            />
-            {/* Dialog */}
-            <div className="absolute inset-x-0 top-10 mx-auto max-w-xl">
-                <div
-                    className="
-            rounded-2xl border shadow-xl
-            bg-white border-gray-200
-            dark:bg-gray-900 dark:border-gray-800
-          "
-                    role="dialog"
-                    aria-labelledby="new-user-title"
-                >
-                    <div
-                        className="
-              px-4 py-3 border-b flex items-center justify-between rounded-t-2xl
-              bg-gray-50/60 border-gray-200
-              dark:bg-gray-800/60 dark:border-gray-800
-            "
-                    >
-                        <h2 id="new-user-title" className="font-semibold text-gray-900 dark:text-gray-100">
-                            {success ? 'Чакыруу түзүлдү' : 'Жаңы колдонуучу кошуу'}
-                        </h2>
-                        <button
-                            className="btn btn-ghost dark:text-gray-200 dark:hover:text-white dark:hover:bg-gray-800"
-                            onClick={onClose}
-                            aria-label="Жабуу"
-                            title="Жабуу"
+    return (
+        <Modal
+            open={open}
+            onClose={() => {
+                setSuccess(null);
+                onClose();
+                reset();
+            }}
+            title={success ? 'Чакыруу түзүлдү' : 'Жаңы колдонуучу кошуу'}
+            size="xl" // matches your previous max-w-xl
+            footer={
+                !success ? (
+                    <div className="flex items-center justify-end gap-2 w-full">
+                        <GhostButton
+                            type="button"
+                            onClick={() => {
+                                reset();
+                                onClose();
+                            }}
                         >
-                            X
-                        </button>
+                            Жокко чыгаруу
+                        </GhostButton>
+                        <PrimaryButton type="submit" form="new-user-form" disabled={isSubmitting}>
+                            {isSubmitting ? 'Жүктөлүүдө...' : 'Чакыруу жөнөтүү'}
+                        </PrimaryButton>
                     </div>
-
-                    <div className="p-4">
-                        {!success ? (
-                            roleOptions.length === 0 ? (
-                                <div className="text-sm text-red-600 dark:text-red-400">
-                                    Бул иш-аракетке уруксат жок. Жаңы колдонуучуну <b>менеджер</b> же <b>суперадмин</b> гана кошо алат.
-                                </div>
-                            ) : (
-                                <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-                                    <Field label="Аты-жөнү *" error={errors.fullName?.message}>
-                                        <Input placeholder="Айбек Турдубек" {...register('fullName')} />
-                                    </Field>
-
-                                    <Field label="Email *" error={errors.email?.message}>
-                                        <Input placeholder="user@example.com" {...register('email')} />
-                                    </Field>
-
-                                    <Field label="Роль *" error={errors.role?.message}>
-                                        <Select {...register('role')}>
-                                            {roleOptions.map((r) => (
-                                                <option key={r.value} value={r.value}>
-                                                    {r.label}
-                                                </option>
-                                            ))}
-                                        </Select>
-                                    </Field>
-
-                                    <div className="flex items-center justify-end gap-2">
-                                        <GhostButton type="button" onClick={onClose}>
-                                            Жокко чыгаруу
-                                        </GhostButton>
-                                        <PrimaryButton type="submit" disabled={isSubmitting}>
-                                            {isSubmitting ? 'Жүктөлүүдө...' : 'Чакыруу жөнөтүү'}
-                                        </PrimaryButton>
-                                    </div>
-                                </form>
-                            )
-                        ) : (
-                            <SuccessInviteCard data={success} onClose={onClose} onReset={() => setSuccess(null)} />
-                        )}
+                ) : (
+                    <div className="flex items-center justify-end gap-2 w-full">
+                        <GhostButton onClick={() => setSuccess(null)}>Дагы кошуу</GhostButton>
+                        <PrimaryButton
+                            onClick={() => {
+                                reset();
+                                onClose();
+                            }}
+                        >
+                            Жабуу
+                        </PrimaryButton>
                     </div>
-                </div>
-            </div>
-        </div>,
-        document.body
+                )
+            }
+        >
+            {!success ? (
+                roleOptions.length === 0 ? (
+                    <div className="text-sm text-red-600 dark:text-red-400">
+                        Бул иш-аракетке уруксат жок. Жаңы колдонуучуну <b>менеджер</b> же <b>(супер)админ</b> гана кошо алат.
+                    </div>
+                ) : (
+                    <form id="new-user-form" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+                        <Field label="Аты-жөнү *" error={errors.fullName?.message}>
+                            <Input placeholder="Айбек Турдубек" {...register('fullName')} />
+                        </Field>
+
+                        <Field label="Email *" error={errors.email?.message}>
+                            <Input placeholder="user@example.com" type="email" {...register('email')} />
+                        </Field>
+
+                        <Field label="Роль *" error={errors.role?.message}>
+                            <Select {...register('role')}>
+                                {roleOptions.map((r) => (
+                                    <option key={r.value} value={r.value}>
+                                        {r.label}
+                                    </option>
+                                ))}
+                            </Select>
+                        </Field>
+                    </form>
+                )
+            ) : (
+                <SuccessInviteCard data={success} />
+            )}
+        </Modal>
     );
 }
 
-// Simple field wrapper
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
     return (
         <div>
@@ -194,15 +171,7 @@ function Field({ label, error, children }: { label: string; error?: string; chil
     );
 }
 
-function SuccessInviteCard({
-    data,
-    onClose,
-    onReset,
-}: {
-    data: { userId: number; inviteLink: string; inviteToken: string };
-    onClose: () => void;
-    onReset: () => void;
-}) {
+function SuccessInviteCard({ data }: { data: { userId: number; inviteLink: string; inviteToken: string } }) {
     function copy(text: string) {
         navigator.clipboard?.writeText(text);
     }
@@ -212,81 +181,48 @@ function SuccessInviteCard({
                 Колдонуучу ийгиликтүү түзүлдү. Чакыруу шилтемеси email аркылуу жөнөтүлдү.
             </div>
 
-            <div
-                className="
-          rounded-xl border p-3
-          bg-gray-50 border-gray-200
-          dark:bg-gray-800 dark:border-gray-700
-        "
-            >
-                <div className="text-xs text-gray-500 dark:text-gray-400">Колдонуучу ID</div>
+            <Box title="Колдонуучу ID">
                 <div className="font-mono text-sm text-gray-900 dark:text-gray-100">{data.userId}</div>
-            </div>
+            </Box>
 
-            <div
-                className="
-          rounded-xl border p-3
-          bg-white border-gray-200
-          dark:bg-gray-900 dark:border-gray-700
-        "
-            >
-                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Чакыруу шилтемеси</div>
+            <Box title="Чакыруу шилтемеси" shaded>
                 <div className="flex items-center gap-2">
                     <input
-                        className="
-              input flex-1 text-xs
-              bg-white text-gray-900 placeholder-gray-400
-              dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500
-            "
                         readOnly
                         value={data.inviteLink}
+                        className="flex-1 text-xs rounded-xl border px-3 py-2 bg-white text-gray-900 placeholder-gray-400 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
                     />
-                    <SubtleButton
-                        className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
-                        onClick={() => copy(data.inviteLink)}
-                    >
-                        Көчүрүү
-                    </SubtleButton>
-                    <SubtleButton
-                        className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
-                        onClick={() => window.open(data.inviteLink, '_blank', 'noopener,noreferrer')}
-                    >
-                        Ачуy
-                    </SubtleButton>
+                    <SubtleButton onClick={() => copy(data.inviteLink)}>Көчүрүү</SubtleButton>
+                    <SubtleButton onClick={() => window.open(data.inviteLink, '_blank', 'noopener,noreferrer')}>Ачуy</SubtleButton>
                 </div>
-            </div>
+            </Box>
 
-            <div
-                className="
-          rounded-xl border p-3
-          bg-white border-gray-200
-          dark:bg-gray-900 dark:border-gray-700
-        "
-            >
-                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Чакыруу токени</div>
+            <Box title="Чакыруу токени" shaded>
                 <div className="flex items-center gap-2">
                     <input
-                        className="
-              input flex-1 text-xs
-              bg-white text-gray-900 placeholder-gray-400
-              dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500
-            "
                         readOnly
                         value={data.inviteToken}
+                        className="flex-1 text-xs rounded-xl border px-3 py-2 bg-white text-gray-900 placeholder-gray-400 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
                     />
-                    <SubtleButton
-                        className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
-                        onClick={() => copy(data.inviteToken)}
-                    >
-                        Көчүрүү
-                    </SubtleButton>
+                    <SubtleButton onClick={() => copy(data.inviteToken)}>Көчүрүү</SubtleButton>
                 </div>
-            </div>
+            </Box>
+        </div>
+    );
+}
 
-            <div className="flex items-center justify-end gap-2">
-                <GhostButton onClick={onReset}>Дагы кошуу</GhostButton>
-                <PrimaryButton onClick={onClose}>Жабуу</PrimaryButton>
-            </div>
+function Box({ title, children, shaded }: { title: string; children: React.ReactNode; shaded?: boolean }) {
+    return (
+        <div
+            className={clsx(
+                'rounded-xl border p-3',
+                shaded
+                    ? 'bg-white border-gray-200 dark:bg-gray-900 dark:border-gray-700'
+                    : 'bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+            )}
+        >
+            <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">{title}</div>
+            {children}
         </div>
     );
 }

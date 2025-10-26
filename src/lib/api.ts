@@ -44,44 +44,41 @@ api.interceptors.response.use(
         const { response, config } = error;
         const status = response?.status;
 
-        // If no response (network error), just bubble up
         if (!response || !config) return Promise.reject(error);
 
-        // If refresh is disabled OR this is already a retry OR this is the refresh call itself
         const notRefreshable =
-            !REFRESH_ENABLED || config._retried || isAuthRefresh(config);
+            !REFRESH_ENABLED || (config as any)._retried || isAuthRefresh(config);
 
-        // When unauthorized/forbidden and we can't/shouldn't refresh → logout
-        if ((status === 401 || status === 403) && notRefreshable) {
+
+        // 403 → permission issue, NEVER redirect; bubble up so UI can toast
+        if (status === 403) {
+            return Promise.reject(error);
+        }
+        // 401 and not refreshable → redirect to login
+        if (status === 401 && notRefreshable) {
             redirectToLogin();
             return Promise.reject(error);
         }
 
-        // Only attempt refresh for 401 (unauthorized), not for 403 (forbidden)
-        if (status !== 401) {
-            return Promise.reject(error);
-        }
+        // Only attempt refresh for 401; anything else just bubble up
+        if (status !== 401) return Promise.reject(error);
 
         // ---- Refresh flow for 401 ----
-        const original = config;
+        const original = config as AxiosRequestConfig & { _retried?: boolean };
 
-        // If a refresh is in-flight, queue until it finishes
         if (refreshing) {
             await new Promise<void>((resolve) => queueResolvers.push(resolve));
-            // After refresh resolves (success or fail), if tokens exist, retry once
             const tokens = tokenStore.get();
             if (!tokens?.accessToken) {
                 redirectToLogin();
                 return Promise.reject(error);
             }
             original._retried = true;
-            // Keep headers and re-attach Authorization
             original.headers = original.headers ?? {};
             (original.headers as any).Authorization = `Bearer ${tokens.accessToken}`;
             return api(original);
         }
 
-        // Start a refresh
         try {
             refreshing = true;
 
@@ -93,20 +90,16 @@ api.interceptors.response.use(
 
             const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
 
-            // Expect backend to return { accessToken, refreshToken? }
             tokenStore.set(data);
 
-            // Release queued requests
             queueResolvers.forEach((res) => res());
             queueResolvers = [];
 
-            // Retry the original request once with new token
             original._retried = true;
             original.headers = original.headers ?? {};
             (original.headers as any).Authorization = `Bearer ${data.accessToken ?? tokenStore.get()?.accessToken}`;
             return api(original);
         } catch (e) {
-            // Refresh failed → logout and reject
             queueResolvers.forEach((res) => res());
             queueResolvers = [];
             redirectToLogin();

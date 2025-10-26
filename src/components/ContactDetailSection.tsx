@@ -1,7 +1,8 @@
 import React from 'react';
 import {
     Mail, Phone, Tag, CalendarClock, Flag, Save, X, ArrowLeft,
-    MoreHorizontal, Send, Pencil, ArrowRightLeft, ShieldCheck, Info,
+    // MoreHorizontal, Send, ArrowRightLeft,
+    Pencil, ShieldCheck, Info,
 } from 'lucide-react';
 import { Card, CardBody, Section } from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
@@ -95,12 +96,18 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
     } = ctx;
 
     return (
-        <div className="max-w-6xl mx-auto space-y-5 pb-16 text-gray-900 dark:text-gray-100">
-            {/* Top title row */}
-            <div className="flex items-center justify-between rounded-2xl border px-3 py-2
-                bg-white border-gray-200
-                dark:bg-gray-900 dark:border-gray-800">
-                <div className="flex items-center gap-3 min-w-0">
+        <div className="max-w-6xl w-full min-w-0 mx-auto space-y-5 pb-16 text-gray-900 dark:text-gray-100">
+            {/* Sticky top title row */}
+            <div
+                className="
+          flex items-center justify-between rounded-2xl border px-3 py-2
+          sticky top-14 md:top-0 z-30
+          bg-white border-gray-200
+          dark:bg-gray-900 dark:border-gray-800
+          overflow-hidden
+        "
+            >
+                <div className="flex items-center gap-3 min-w-0 w-full">
                     <button
                         onClick={navBack}
                         className="btn"
@@ -110,35 +117,35 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                         <ArrowLeft className="w-4 h-4" />
                     </button>
 
-                    {/* Avatar chip: softer in dark mode */}
+                    {/* Avatar chip */}
                     <div
                         className="
-        h-10 w-10 rounded-full grid place-items-center font-semibold
-        bg-emerald-200 text-emerald-900
-        dark:bg-emerald-900/40 dark:text-emerald-200 dark:ring-1 dark:ring-emerald-800/50
-      "
+              h-9 w-9 md:h-10 md:w-10 rounded-full grid place-items-center font-semibold
+              bg-emerald-200 text-emerald-900
+              dark:bg-emerald-900/40 dark:text-emerald-200 dark:ring-1 dark:ring-emerald-800/50
+            "
                     >
                         {c.fullName?.[0] ?? 'U'}
                     </div>
 
                     <div className="min-w-0">
-                        <h1 className="text-xl md:text-2xl font-semibold truncate">
+                        <h1 className="text-lg md:text-2xl font-semibold truncate">
                             {c.fullName}{' '}
                             <span className="text-gray-400 dark:text-gray-500 font-mono">#{c.id}</span>
                         </h1>
 
-                        {/* Make sure text + icons inherit the row color in both themes */}
-                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-300">
+                        {/* Inline chips with truncation on mobile */}
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs md:text-sm text-gray-600 dark:text-gray-300">
                             {c.email && (
-                                <span className="inline-flex items-center gap-1">
-                                    <Mail className="w-4 h-4" />
-                                    {c.email}
+                                <span className="inline-flex items-center gap-1 max-w-[42vw] md:max-w-none truncate">
+                                    <Mail className="w-4 h-4 shrink-0" />
+                                    <span className="truncate">{c.email}</span>
                                 </span>
                             )}
                             {c.phone && (
-                                <span className="inline-flex items-center gap-1">
-                                    <Phone className="w-4 h-4" />
-                                    {c.phone}
+                                <span className="inline-flex items-center gap-1 max-w-[42vw] md:max-w-none truncate">
+                                    <Phone className="w-4 h-4 shrink-0" />
+                                    <span className="truncate">{c.phone}</span>
                                 </span>
                             )}
 
@@ -147,7 +154,7 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                             {typeof c.consent === 'boolean' && (
                                 <span
                                     className={[
-                                        'inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs',
+                                        'inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] md:text-xs',
                                         c.consent
                                             ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/60 dark:border-emerald-800 dark:text-emerald-200'
                                             : 'bg-gray-50 border-gray-200 text-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300',
@@ -161,41 +168,32 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                     </div>
                 </div>
 
-                {/* Actions: GhostButton must keep text visible on dark hover */}
-                <div className="flex gap-2">
-                    {/* <GhostButton>
-                        <Send className="w-4 h-4" /> Кат жөнөтүү
-                    </GhostButton>
-                    <GhostButton>
-                        <ArrowRightLeft className="w-4 h-4" /> Конвертациялоо
-                    </GhostButton> */}
-
+                {/* Actions */}
+                <div className="flex gap-2 shrink-0">
                     {!editing ? (
                         <GhostButton
                             onClick={() => canEdit && setEditing(true)}
                             disabled={!canEdit}
                             title={!canEdit ? 'Бул бетти өзгөртүү укугуңуз жок' : undefined}
+                            className="px-2 py-1 md:px-3"
                         >
-                            <Pencil className="w-4 h-4" /> Оңдоо
+                            <Pencil className="w-4 h-4" />
+                            <span className="hidden md:inline ml-1">Оңдоо</span>
                         </GhostButton>
                     ) : (
                         <>
-                            <GhostButton onClick={cancel}>
-                                <X className="w-4 h-4" /> Жокко чыгаруу
+                            <GhostButton onClick={cancel} className="px-2 py-1 md:px-3">
+                                <X className="w-4 h-4" />
+                                <span className="hidden md:inline ml-1">{t.contacts.cancel}</span>
                             </GhostButton>
-                            <PrimaryButton onClick={save} disabled={!canSave}>
-                                <Save className="w-4 h-4" /> {saving ? t.contacts.saving : t.contacts.save}
+                            <PrimaryButton onClick={save} disabled={!canSave} className="px-2 py-1 md:px-3">
+                                <Save className="w-4 h-4" />
+                                <span className="hidden md:inline ml-1">{saving ? t.contacts.saving : t.contacts.save}</span>
                             </PrimaryButton>
                         </>
                     )}
-
-                    {/* <GhostButton aria-label="Дагы">
-                        <MoreHorizontal className="w-4 h-4" />
-                    </GhostButton> */}
                 </div>
             </div>
-
-
 
             {/* Follow-up status banner */}
             <FollowUpBanner next={c.nextFollowUpAt} />
@@ -203,10 +201,10 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
             {(isSalesOrManager && suggestNoResponse) && (
                 <div
                     className="
-      rounded-xl border p-3 flex items-center justify-between gap-3 shadow-sm
-      bg-amber-50/90 border-amber-200 text-amber-900
-      dark:bg-amber-900/35 dark:border-amber-800 dark:text-amber-200
-    "
+            rounded-xl border p-3 flex items-center justify-between gap-3 shadow-sm
+            bg-amber-50/90 border-amber-200 text-amber-900
+            dark:bg-amber-900/35 dark:border-amber-800 dark:text-amber-200
+          "
                 >
                     <div className="text-sm">
                         Бул лидге <b>{attempts}</b> жолу байланыш жасалды, жооп келе элек окшойт.
@@ -226,10 +224,10 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
             {(isSalesOrManager && suggestLost) && (
                 <div
                     className="
-      rounded-xl border p-3 flex items-center justify-between gap-3 shadow-sm
-      bg-red-50/90 border-red-200 text-red-800
-      dark:bg-red-900/35 dark:border-red-800 dark:text-red-200
-    "
+            rounded-xl border p-3 flex items-center justify-between gap-3 shadow-sm
+            bg-red-50/90 border-red-200 text-red-800
+            dark:bg-red-900/35 dark:border-red-800 dark:text-red-200
+          "
                 >
                     <div className="text-sm">
                         <b>{attempts}</b> аракеттен кийин да байланыша албай жатабыз.
@@ -245,7 +243,6 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                     </div>
                 </div>
             )}
-
 
             {c.status === 'CONTACTED' && (
                 <div className="flex items-center gap-2 mt-2">
@@ -263,9 +260,7 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
             )}
 
             {noteItems.length > 0 && (
-                <div className="rounded-xl border p-3 shadow-sm
-                  bg-white border-gray-200
-                  dark:bg-gray-900 dark:border-gray-800">
+                <div className="rounded-xl border p-3 shadow-sm bg-white border-gray-200 dark:bg-gray-900 dark:border-gray-800">
                     <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
                         Акыркы эскертме — {new Date(noteItems[0].createdAt).toLocaleString()}
                         {noteItems[0].author?.fullName ? ` • ${noteItems[0].author.fullName}` : ''}
@@ -276,28 +271,51 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                 </div>
             )}
 
-            {/* Sub header with tabs + last update */}
-            <div className="flex items-center justify-between border-b pb-2
-                bg-white/70 dark:bg-gray-900/70
-                backdrop-blur-[2px]
-                border-gray-200 dark:border-gray-800 rounded-t-md">
-                <Tabs
-                    value={tab}
-                    onChange={(k) => setTab(k as any)}
-                    items={[{ key: 'overview', label: 'Кыскача' }, { key: 'timeline', label: 'Таймлайн' }]}
-                />
-                <div className="text-xs text-gray-500 dark:text-gray-200 pr-2">{lastUpdateLabel}</div>
-            </div>
+            {/* Sub header with tabs + last update (scrollable on mobile) */}
+            <div
+                className="
+    border-b pb-2
+    bg-white/70 dark:bg-gray-900/70 backdrop-blur-[2px]
+    border-gray-200 dark:border-gray-800 rounded-t-md
+    px-2 pt-2
+    flex flex-col sm:flex-row sm:items-center sm:justify-between
+  "
+            >
+                {/* Tabs — scrollable horizontally on mobile */}
+                <div className="overflow-x-auto no-scrollbar -mx-2 px-2 flex-1">
+                    <div className="inline-flex min-w-full sm:min-w-0 whitespace-nowrap">
+                        <Tabs
+                            value={tab}
+                            onChange={(k) => setTab(k as any)}
+                            items={[
+                                { key: 'overview', label: 'Кыскача' },
+                                { key: 'timeline', label: 'Таймлайн' },
+                            ]}
+                        />
+                    </div>
+                </div>
 
+                {/* Last update label below on mobile, half-height style */}
+                <div
+                    className="
+      text-[11px] sm:text-xs text-gray-500 dark:text-gray-300
+      mt-1 sm:mt-0 sm:ml-3
+      leading-tight break-words
+      flex-1 sm:flex-none
+    "
+                >
+                    <div className="max-h-[2.5em] overflow-hidden">
+                        {lastUpdateLabel}
+                    </div>
+                </div>
+            </div>
 
             {/* Main grid */}
             <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
                 {/* Related / Quick Summary */}
                 <aside className="hidden lg:block">
                     <div className="sticky top-20">
-                        {/* make the panel a card so text always has contrast */}
-                        <div className="rounded-2xl border bg-white border-gray-200 p-3
-                    dark:bg-gray-900 dark:border-gray-800">
+                        <div className="rounded-2xl border bg-white border-gray-200 p-3 dark:bg-gray-900 dark:border-gray-800">
                             <div className="font-medium text-gray-700 dark:text-gray-200 mb-2">
                                 Кыскача маалымат
                             </div>
@@ -423,12 +441,7 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
 
                                     {/* Best time card (placeholder) */}
                                     <div className="md:col-span-1">
-                                        <div
-                                            className="
-      rounded-2xl border bg-white shadow-sm
-      dark:bg-gray-900 dark:border-gray-800
-    "
-                                        >
+                                        <div className="rounded-2xl border bg-white shadow-sm dark:bg-gray-900 dark:border-gray-800">
                                             <div className="p-4">
                                                 <div className="font-medium mb-2 text-gray-900 dark:text-gray-100">
                                                     Эң ылайыктуу убакыт
@@ -441,7 +454,6 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                                             </div>
                                         </div>
                                     </div>
-
                                 </div>
                             </Section>
 
@@ -485,17 +497,17 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
 
                             {/* Quick update row */}
                             <Section title="Жаңыртуу">
-                                <div className="grid md:grid-cols-2 gap-4">
-                                    <div>
+                                <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="min-w-0">
                                         <label className="block text-sm mb-1 flex items-center gap-1">
                                             <CalendarClock className="w-4 h-4" /> {t.contacts.nextFollowUpAt}
                                         </label>
-                                        <div className="flex gap-2">
+                                        <div className="flex gap-2 items-stretch min-w-0">
                                             <Input
                                                 type="datetime-local"
                                                 value={nextFollowUpAt}
                                                 onChange={(e) => setNextFollowUpAt(e.target.value)}
-                                                className="input h-10 text-sm flex-1"
+                                                className="input h-10 text-sm flex-1 min-w-0 w-full"
                                                 disabled={!(editing && canEdit)}
                                                 aria-label="Кийинки байланыш убактысы"
                                             />
@@ -504,7 +516,7 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                                                     onClick={() => (editing && canEdit) && setNextFollowUpAt('')}
                                                     title="Такташ"
                                                     disabled={!(editing && canEdit)}
-                                                    className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                                                    className="px-2 py-1 shrink-0 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
                                                 >
                                                     Өчүрүү
                                                 </SubtleButton>
@@ -525,11 +537,10 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                                                 const n = Math.max(1, Math.min(5, parseInt(e.target.value || '1', 10)));
                                                 setPriority(Number.isFinite(n) ? n : 1);
                                             }}
-                                            className="input h-10 text-sm"
+                                            className="input h-10 text-sm w-full"
                                             disabled={!(editing && canEdit)}
                                             aria-label="Приоритет"
                                         />
-                                        {(editing && canEdit) && priority < 1 && <div className="text-xs text-red-600 dark:text-red-400 mt-1">Минималдуу 1</div>}
                                     </div>
 
                                     {/* Course editing */}
@@ -539,7 +550,7 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                                             value={courseName}
                                             onChange={(e) => setCourseName(e.target.value)}
                                             placeholder="frontend, backend..."
-                                            className="input h-10 text-sm"
+                                            className="input h-10 text-sm w-full"
                                             disabled={!(editing && canEdit)}
                                         />
                                     </div>
@@ -548,7 +559,7 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                                         <Select
                                             value={courseType}
                                             onChange={(e) => setCourseType(e.target.value as any)}
-                                            className="input h-10 text-sm"
+                                            className="input h-10 text-sm w-full"
                                             disabled={!(editing && canEdit)}
                                         >
                                             <option value="">—</option>
@@ -558,7 +569,7 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                                         </Select>
                                     </div>
 
-                                    <div className="md:col-span-2">
+                                    <div className="md:col-span-2 min-w-0">
                                         <label className="block text-sm mb-1 flex items-center gap-1">
                                             <Tag className="w-4 h-4" /> {t.contacts.tags}
                                         </label>
@@ -573,11 +584,11 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                                                 }
                                             }}
                                             placeholder="morning, teen"
-                                            className="input h-10 text-sm"
+                                            className="input h-10 text-sm w-full min-w-0"
                                             disabled={!(editing && canEdit)}
                                         />
                                         {tagsArr.length > 0 && (
-                                            <div className="mt-2 flex flex-wrap gap-2">
+                                            <div className="mt-2 flex flex-wrap gap-2 break-words">
                                                 {tagsArr.map((tg, i) => (
                                                     <span
                                                         key={`${tg}-${i}`}
@@ -602,9 +613,9 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                                         )}
                                     </div>
 
-                                    {/* Bottom action row (only in edit mode) */}
+                                    {/* Bottom action row (only in edit mode, desktop/tablet) */}
                                     {editing && (
-                                        <div className="md:col-span-2 flex gap-2 justify-end">
+                                        <div className="hidden md:flex md:col-span-2 gap-2 justify-end">
                                             <GhostButton onClick={cancel}><X className="w-4 h-4" /> {t.contacts.cancel}</GhostButton>
                                             <PrimaryButton disabled={!canSave} onClick={save}>
                                                 <Save className="w-4 h-4" /> {saving ? t.contacts.saving : t.contacts.save}

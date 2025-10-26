@@ -1,7 +1,7 @@
 // src/auth/RequireRole.tsx
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import type { UserRole } from './user-role';
+import type { UserRole } from '../lib/constants/roles';
 
 type UseAuthResult = { user: { role: UserRole } | null };
 function useAuthFallback(): UseAuthResult {

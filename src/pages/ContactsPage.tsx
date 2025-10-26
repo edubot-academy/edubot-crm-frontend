@@ -8,10 +8,11 @@ import Select from '@/components/ui/Select';
 import { Table, TBody, THead } from '@/components/ui/Table';
 import StatusBadge from '@/components/StatusBadge';
 import Skeleton from '@/components/ui/Skeleton';
-import { Search } from 'lucide-react';
+import { Search, Plus, Trash2, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import NewLeadModal from '@/components/NewLeadModal';
 import { useToast } from '@/components/ui/Toast';
 import { currentUser } from '@/lib/auth';
+import { is } from 'zod/v4/locales';
 
 export type Contact = {
     id: number;
@@ -20,8 +21,6 @@ export type Contact = {
     phone?: string | null;
     source?: 'WEBSITE' | 'MANUAL' | 'SOCIAL' | 'ADS' | 'REFERRAL' | 'CALL' | 'IMPORT' | 'OTHER';
     sourceProvider?: string | null;
-
-    // Expanded status model
     status:
     | 'NEW'
     | 'CONTACTED'
@@ -37,25 +36,19 @@ export type Contact = {
     | 'DUPLICATE'
     | 'TEST'
     | 'ARCHIVED';
-
     createdAt: string;
-
-    assignedToUserId?: number | null; // used by Assign UI
+    assignedToUserId?: number | null;
     assignedToName?: string | null;
     assignedToRole?: 'sales' | 'assistant' | 'manager' | 'superadmin' | null;
-
     createdByUserId?: number | null;
     createdByName?: string | null;
-
-    // Read-only server-computed outreach metrics
     contactAttempts?: number | null;
     lastAttemptAt?: string | null;
 };
 
 type ListRes = { items: Contact[]; total: number; page: number; limit: number; totalPages: number };
-type UserLite = { id: number; fullName: string; role: 'sales' | 'assistant' | 'manager' | 'superadmin' };
+export type UserLite = { id: number; fullName: string; role: 'sales' | 'assistant' | 'manager' | 'admin' | 'superadmin' };
 
-// All status filters ('' = all)
 const RAW_STATUSES = [
     '',
     'NEW',
@@ -74,7 +67,6 @@ const RAW_STATUSES = [
     'ARCHIVED',
 ] as const;
 
-// Kyrgyz labels for dropdown/filter chips (UI-facing strings in Kyrgyz)
 const STATUS_LABELS: Record<(typeof RAW_STATUSES)[number], string> = {
     '': 'Баары',
     NEW: 'ЖАҢЫ',
@@ -93,19 +85,13 @@ const STATUS_LABELS: Record<(typeof RAW_STATUSES)[number], string> = {
     ARCHIVED: 'АРХИВДЕЛДИ',
 };
 
-// Build querystring without empty/default params (cleaner URLs).
-// Adds assignedToSelf=1 for sales role so backend can filter on server.
-// Fallback client-side filtering is applied if backend does not implement it.
 function buildQuery(q: string, status: string, page: number, limit: number, role?: UserLite['role']) {
     const p = new URLSearchParams();
     if (q.trim()) p.set('search', q.trim());
     if (status) p.set('status', status);
     if (page > 1) p.set('page', String(page));
     if (limit !== 20) p.set('limit', String(limit));
-    if (role === 'sales') {
-        // Ask API to return only my assigned leads
-        p.set('assignedToSelf', '1');
-    }
+    if (role === 'sales') p.set('assignedToSelf', '1');
     return p;
 }
 
@@ -124,7 +110,7 @@ function useInitialFromUrl() {
     }, [search]);
 }
 
-/** Lightweight confirm dialog */
+/** Lightweight confirm dialog (pure JSX, no portals) */
 function ConfirmDialog({
     open,
     title,
@@ -149,31 +135,20 @@ function ConfirmDialog({
         <div className="fixed inset-0 z-[9998]">
             <div className="absolute inset-0 bg-black/40" onClick={loading ? undefined : onCancel} />
             <div className="absolute inset-0 flex items-center justify-center p-4">
-                <div
-                    className="
-            w-full max-w-md rounded-2xl shadow-xl z-[9999] border
-            bg-white border-gray-200
-            dark:bg-gray-900 dark:border-gray-800
-          "
-                >
+                <div className="w-full max-w-md rounded-2xl shadow-xl z-[9999] border bg-white border-gray-200 dark:bg-gray-900 dark:border-gray-800">
                     <div className="p-5 border-b border-gray-200 dark:border-gray-800">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
                     </div>
                     <div className="p-5 text-sm text-gray-700 dark:text-gray-200 whitespace-pre-line">{message}</div>
                     <div className="p-4 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-2">
-                        <button className="btn" onClick={onCancel} disabled={loading}>
-                            {cancelText}
-                        </button>
-                        <button className="btn btn-danger" onClick={onConfirm} disabled={loading}>
-                            {loading ? 'Аткарылууда…' : confirmText}
-                        </button>
+                        <button className="btn" onClick={onCancel} disabled={loading}>{cancelText}</button>
+                        <button className="btn btn-danger" onClick={onConfirm} disabled={loading}>{loading ? 'Аткарылууда…' : confirmText}</button>
                     </div>
                 </div>
             </div>
         </div>
     );
 }
-
 
 export default function ContactsPage() {
     const init = useInitialFromUrl();
@@ -194,11 +169,12 @@ export default function ContactsPage() {
     const [newOpen, setNewOpen] = useState(false);
     const toast = useToast();
 
-    // Assignables (users we can assign to)
-    const [assignables, setAssignables] = useState<UserLite[]>([]);
-    const [assignBusy, setAssignBusy] = useState<Record<number, boolean>>({}); // per-contact busy state
 
-    // Selection for bulk actions
+    // Assignables
+    const [assignables, setAssignables] = useState<UserLite[]>([]);
+    const [assignBusy, setAssignBusy] = useState<Record<number, boolean>>({});
+
+    // Bulk selection (superadmin only)
     const [selected, setSelected] = useState<number[]>([]);
     const hasSelection = selected.length > 0;
 
@@ -206,21 +182,21 @@ export default function ContactsPage() {
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [confirmLoading, setConfirmLoading] = useState(false);
     const [target, setTarget] = useState<Contact | null>(null);
-
     const [bulkMode, setBulkMode] = useState<'delete' | 'purge' | null>(null);
 
     const isSuperadmin = role === 'superadmin';
+    const isAdmin = role === 'admin';
     const isManager = role === 'manager';
     const isAssistant = role === 'assistant';
     const isSales = role === 'sales';
 
-    // Debounce search input
+    // Debounce search
     useEffect(() => {
         const id = setTimeout(() => setQ(typedQ), 300);
         return () => clearTimeout(id);
     }, [typedQ]);
 
-    // Build params & sync URL
+    // Sync URL
     const params = useMemo(() => buildQuery(q, status, page, limit, role), [q, status, page, limit, role]);
     useEffect(() => {
         const qs = params.toString();
@@ -232,21 +208,13 @@ export default function ContactsPage() {
     const load = useCallback(async () => {
         setLoading(true);
         setErr('');
-
-        // cancel previous in-flight
         abortRef.current?.abort();
         const ac = new AbortController();
         abortRef.current = ac;
-
         try {
             const { data } = await api.get<ListRes>(`/contacts?${params.toString()}`, { signal: ac.signal as any });
-
-            // Fallback client-side filtering for sales if backend didn't filter
             let items = data.items;
-            if (isSales && myId) {
-                items = items.filter((it) => it.assignedToUserId === myId);
-            }
-
+            if (isSales && myId) items = items.filter((it) => it.assignedToUserId === myId);
             setData({ ...data, items });
             setSelected((sel) => sel.filter((id) => items.some((it) => it.id === id)));
         } catch (e: any) {
@@ -261,26 +229,20 @@ export default function ContactsPage() {
         }
     }, [params, toast, isSales, myId]);
 
-    // initial + whenever params change
     useEffect(() => {
         void load();
-        return () => {
-            // abort on unmount or before next load
-            abortRef.current?.abort();
-        };
+        return () => abortRef.current?.abort();
     }, [load]);
 
-    // Load assignables once (assistants/managers/superadmins need this)
+    // Load assignables
     useEffect(() => {
         async function fetchAssignables() {
-            if (!(isAssistant || isManager || isSuperadmin)) return;
+            if (!(isAssistant || isManager || isAdmin || isSuperadmin)) return;
             try {
-                // Preferred endpoint
                 const try1 = await api.get<UserLite[]>('/users/assignables');
                 setAssignables(try1.data);
             } catch {
                 try {
-                    // Fallback: roles filter
                     const try2 = await api.get<UserLite[]>('/users', { params: { roles: 'sales,assistant,manager' } });
                     setAssignables(try2.data);
                 } catch {
@@ -289,13 +251,13 @@ export default function ContactsPage() {
             }
         }
         void fetchAssignables();
-    }, [isAssistant, isManager, isSuperadmin]);
+    }, [isAssistant, isManager, isAdmin, isSuperadmin]);
 
     const totalPages = data?.totalPages ?? 1;
     const canPrev = page > 1;
     const canNext = page < totalPages;
 
-    // Keyboard ←/→ for pagination
+    // Keyboard ←/→
     useEffect(() => {
         function onKey(e: KeyboardEvent) {
             if (e.key === 'ArrowLeft' && canPrev) setPage((p) => p - 1);
@@ -305,7 +267,7 @@ export default function ContactsPage() {
         return () => window.removeEventListener('keydown', onKey);
     }, [canPrev, canNext]);
 
-    // Single delete
+    // Delete helpers
     function askDelete(c: Contact) {
         setTarget(c);
         setConfirmOpen(true);
@@ -330,7 +292,7 @@ export default function ContactsPage() {
         }
     }
 
-    // Bulk actions (only superadmin per requirement)
+    // Bulk actions
     const openBulkDelete = () => setBulkMode('delete');
     const openBulkPurge = () => setBulkMode('purge');
 
@@ -371,7 +333,6 @@ export default function ContactsPage() {
         else setSelected([]);
     };
 
-    // Helpers
     const renderSource = (c: Contact) => {
         const src = c.source || '—';
         const prov = c.sourceProvider?.trim();
@@ -383,63 +344,49 @@ export default function ContactsPage() {
         );
     };
 
-
-    // Bulk controls only for superadmin (manager removed)
     const canShowBulkControls = isSuperadmin;
-
-    // Assign change
-    async function onAssignChange(contactId: number, assigneeStr: string) {
-        const assigneeUserId = assigneeStr === '' ? null : Number(assigneeStr);
-        setAssignBusy((m) => ({ ...m, [contactId]: true }));
-        try {
-            await api.post('/contacts/assign', { contactId, assigneeUserId });
-            toast.push({
-                title: 'OK',
-                message: assigneeUserId ? 'Жооптуу адам дайындалды.' : 'Жооптуу адам алынды.',
-                variant: 'success',
-            });
-            await load();
-        } catch (e: any) {
-            const raw = e?.response?.data?.message ?? e?.message ?? 'Дайындоодо ката кетти.';
-            toast.push({ title: 'Ката', message: Array.isArray(raw) ? raw.join('\n') : String(raw), variant: 'error' });
-        } finally {
-            setAssignBusy((m) => ({ ...m, [contactId]: false }));
-        }
-    }
-
-    // Sales self-assign (visible only if unassigned)
-    async function onSelfAssign(contactId: number) {
-        setAssignBusy((m) => ({ ...m, [contactId]: true }));
-        try {
-            await api.patch(`/contacts/${contactId}/self-assign`);
-            toast.push({ title: 'OK', message: 'Лид өзүңүзгө дайындалды.', variant: 'success' });
-            await load();
-        } catch (e: any) {
-            const raw = e?.response?.data?.message ?? e?.message ?? 'Ката кетти.';
-            toast.push({ title: 'Ката', message: Array.isArray(raw) ? raw.join('\n') : String(raw), variant: 'error' });
-        } finally {
-            setAssignBusy((m) => ({ ...m, [contactId]: false }));
-        }
-    }
-
-    // Role labels (Kyrgyz)
     const roleKg: Record<UserLite['role'], string> = {
         sales: 'Сатуу',
         assistant: 'Ассистент',
         manager: 'Менеджер',
+        admin: 'Админ',
         superadmin: 'Супер админ',
     };
 
-    // Compute dynamic column count for proper colSpan in skeleton/empty rows
-    const hasBulkCol = isSuperadmin; // only superadmin sees bulk checkbox column
-    const colCount = 6 + (hasBulkCol ? 1 : 0); // ID, Name, Status, Source, CreatedAt, Actions = 6 (+1 if bulk checkbox)
+    const hasBulkCol = isSuperadmin;
+    const colCount = 6 + (hasBulkCol ? 1 : 0);
 
+    // --- UI ---
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            {/* Header + actions */}
+            {/* Mobile sticky header (button next to title) */}
+            <div
+                className="
+    md:hidden sticky top-14 z-30
+    -mx-4 px-4 py-2
+    bg-white/85 dark:bg-gray-900/85 backdrop-blur
+    supports-[backdrop-filter]:bg-white/60
+    border-b border-gray-200 dark:border-gray-800
+    flex items-center justify-between
+  "
+            >
+                <h1 className="text-base font-semibold truncate">{t.contacts.title}</h1>
+                <button
+                    onClick={() => setNewOpen(true)}
+                    className="btn btn-primary px-3 py-1 text-sm"
+                    aria-label="Жаңы лид"
+                    title="Жаңы лид"
+                >
+                    {createLabel}
+                </button>
+            </div>
+
+            {/* Desktop header + actions */}
+            <div className="hidden md:flex items-center justify-between">
                 <h1 className="text-xl font-semibold">{t.contacts.title}</h1>
                 <div className="flex items-center gap-2">
-                    {hasSelection && canShowBulkControls && (
+                    {selected.length > 0 && isSuperadmin && (
                         <>
                             <button className="btn btn-danger" onClick={openBulkDelete}>
                                 Тандалгандарды өчүрүү ({selected.length})
@@ -455,52 +402,94 @@ export default function ContactsPage() {
                 </div>
             </div>
 
+
+            {/* Filters */}
             <Card>
                 <CardBody>
-                    <div className="grid md:grid-cols-4 gap-3">
-                        {/* Search */}
+                    {/* Mobile – compact */}
+                    <div className="md:hidden space-y-2">
+                        {/* Search (no label, lean spacing) */}
                         <div className="relative">
-                            <label className="block text-sm mb-1">{t.contacts.search}</label>
                             <Input
                                 value={typedQ}
-                                onChange={(e) => {
-                                    setPage(1);
-                                    setTypedQ(e.target.value);
-                                }}
+                                onChange={(e) => { setPage(1); setTypedQ(e.target.value); }}
                                 placeholder="Аты, email же телефон"
                                 aria-label="Издөө"
                             />
                             {typedQ && (
                                 <button
                                     type="button"
-                                    className="absolute right-8 bottom-3 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+                                    className="absolute right-8 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-sm"
                                     aria-label="Тазалоо"
                                     onClick={() => { setTypedQ(''); setPage(1); }}
                                 >
                                     ×
                                 </button>
-
-
-
                             )}
                             <Search size={16} className="absolute right-3 bottom-3 opacity-60 text-gray-500 dark:text-gray-400" />
+                        </div>
+
+                        {/* Toolbar: filters toggle + summary */}
+                        <div className="flex items-center justify-end">
+                            <div className="text-xs text-gray-600 dark:text-gray-300">
+                                {t.contacts.page}: {data?.page ?? 1} / {data?.totalPages ?? 1} • {data?.total ?? 0}
+                            </div>
+                        </div>
+
+                        {/* Collapsible filters */}
+                        <div id="mobile-filters" className='grid grid-cols-2 gap-2'>
+                            <Select
+                                value={status}
+                                onChange={(e) => { setPage(1); setStatus(e.target.value); }}
+                                aria-label="Статус боюнча чыпкалоо"
+                            >
+                                {RAW_STATUSES.map((s) => (
+                                    <option key={s || 'ALL'} value={s}>{STATUS_LABELS[s]}</option>
+                                ))}
+                            </Select>
+
+                            <Select
+                                value={String(limit)}
+                                onChange={(e) => { setPage(1); setLimit(Number(e.target.value)); }}
+                                aria-label="Беттеги сан"
+                            >
+                                {[10, 20, 50].map((n) => (
+                                    <option key={n} value={n}>{n}</option>
+                                ))}
+                            </Select>
+                        </div>
+                    </div>
+
+                    {/* Desktop / Tablet – original 4-col grid */}
+                    <div className="hidden md:grid md:grid-cols-4 gap-3">
+                        {/* Search */}
+                        <div className="relative">
+                            <label className="block text-sm mb-1">{t.contacts.search}</label>
+                            <Input
+                                value={typedQ}
+                                onChange={(e) => { setPage(1); setTypedQ(e.target.value); }}
+                                placeholder="Аты, email же телефон"
+                                aria-label="Издөө"
+                            />
+                            {typedQ && (
+                                <button
+                                    type="button"
+                                    className="absolute right-8 mt-0.5 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+                                    aria-label="Тазалоо"
+                                    onClick={() => { setTypedQ(''); setPage(1); }}
+                                >
+                                    ×
+                                </button>
+                            )}
+                            <Search size={16} className="absolute right-3 bottom-4 opacity-60 text-gray-500 dark:text-gray-400" />
                         </div>
 
                         {/* Status */}
                         <div>
                             <label className="block text-sm mb-1">{t.contacts.status}</label>
-                            <Select
-                                value={status}
-                                onChange={(e) => {
-                                    setPage(1);
-                                    setStatus(e.target.value);
-                                }}
-                                aria-label="Статус боюнча чыпкалоо"
-                            >
+                            <Select value={status} onChange={(e) => { setPage(1); setStatus(e.target.value); }} aria-label="Статус боюнча чыпкалоо">
                                 {RAW_STATUSES.map((s) => (
-                                    <option key={s || 'ALL'} value={s}>
-                                        {STATUS_LABELS[s]}
-                                    </option>
+                                    <option key={s || 'ALL'} value={s}>{STATUS_LABELS[s]}</option>
                                 ))}
                             </Select>
                         </div>
@@ -508,18 +497,9 @@ export default function ContactsPage() {
                         {/* Per page */}
                         <div>
                             <label className="block text-sm mb-1">{t.contacts.perPage}</label>
-                            <Select
-                                value={String(limit)}
-                                onChange={(e) => {
-                                    setPage(1);
-                                    setLimit(Number(e.target.value));
-                                }}
-                                aria-label="Беттеги сан"
-                            >
+                            <Select value={String(limit)} onChange={(e) => { setPage(1); setLimit(Number(e.target.value)); }} aria-label="Беттеги сан">
                                 {[10, 20, 50].map((n) => (
-                                    <option key={n} value={n}>
-                                        {n}
-                                    </option>
+                                    <option key={n} value={n}>{n}</option>
                                 ))}
                             </Select>
                         </div>
@@ -535,22 +515,17 @@ export default function ContactsPage() {
                 </CardBody>
             </Card>
 
-            <Card>
+
+            {/* Desktop table (lg+) */}
+            <Card className="hidden lg:block">
                 <CardHeader>{t.contacts.title}</CardHeader>
                 <CardBody>
                     <div className="overflow-auto max-h-[70vh]">
                         <Table>
                             <THead>
                                 <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                                    {(isSuperadmin /* manager removed here */) && (
-                                        <th
-                                            scope="col"
-                                            className="
-          px-3 py-2 text-left text-sm font-semibold
-          bg-gray-50 text-gray-700
-          dark:bg-gray-800 dark:text-gray-200
-        "
-                                        >
+                                    {isSuperadmin && (
+                                        <th className="px-3 py-2 text-left text-sm font-semibold bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200">
                                             <input
                                                 type="checkbox"
                                                 checked={allOnPageSelected}
@@ -559,99 +534,28 @@ export default function ContactsPage() {
                                             />
                                         </th>
                                     )}
-                                    <th
-                                        scope="col"
-                                        className="
-        px-3 py-2 text-left text-sm font-semibold
-        bg-gray-50 text-gray-700
-        dark:bg-gray-800 dark:text-gray-200
-      "
-                                    >
-                                        ID
-                                    </th>
-                                    <th
-                                        scope="col"
-                                        className="
-        px-3 py-2 text-left text-sm font-semibold
-        bg-gray-50 text-gray-700
-        dark:bg-gray-800 dark:text-gray-200
-      "
-                                    >
-                                        Аты-жөнү
-                                    </th>
-                                    <th
-                                        scope="col"
-                                        className="
-        px-3 py-2 text-left text-sm font-semibold
-        bg-gray-50 text-gray-700
-        dark:bg-gray-800 dark:text-gray-200
-      "
-                                    >
-                                        {t.contacts.status}
-                                    </th>
-                                    <th
-                                        scope="col"
-                                        className="
-        px-3 py-2 text-left text-sm font-semibold
-        bg-gray-50 text-gray-700
-        dark:bg-gray-800 dark:text-gray-200
-      "
-                                    >
-                                        {t.contacts.source}
-                                    </th>
-                                    <th
-                                        scope="col"
-                                        className="
-        px-3 py-2 text-left text-sm font-semibold
-        bg-gray-50 text-gray-700
-        dark:bg-gray-800 dark:text-gray-200
-      "
-                                    >
-                                        {t.contacts.createdAt}
-                                    </th>
-                                    <th
-                                        scope="col"
-                                        className="
-        px-3 py-2 text-left text-sm font-semibold
-        bg-gray-50 text-gray-700
-        dark:bg-gray-800 dark:text-gray-200
-      "
-                                    >
-                                        {t.contacts.actions}
-                                    </th>
+                                    {['ID', 'Аты-жөнү', t.contacts.status, t.contacts.source, t.contacts.createdAt, t.contacts.actions].map((h) => (
+                                        <th key={String(h)} className="px-3 py-2 text-left text-sm font-semibold bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200">{h}</th>
+                                    ))}
                                 </tr>
                             </THead>
-
                             <TBody>
-                                {loading &&
-                                    Array.from({ length: 6 }).map((_, i) => (
-                                        <tr key={i} className="border-t">
-                                            <td colSpan={colCount}>
-                                                <Skeleton className="h-8 w-full" />
-                                            </td>
-                                        </tr>
-                                    ))}
-
+                                {loading && Array.from({ length: 6 }).map((_, i) => (
+                                    <tr key={i} className="border-t"><td colSpan={colCount}><Skeleton className="h-8 w-full" /></td></tr>
+                                ))}
                                 {!loading && (data?.items?.length ?? 0) === 0 && (
-                                    <tr>
-                                        <td colSpan={colCount} className="p-8 text-center text-gray-500 dark:text-gray-400">
-                                            {t.contacts.empty}
-                                        </td>
-                                    </tr>
+                                    <tr><td colSpan={colCount} className="p-8 text-center text-gray-500 dark:text-gray-400">{t.contacts.empty}</td></tr>
                                 )}
-
                                 {data?.items?.map((c) => {
                                     const busy = !!assignBusy[c.id];
                                     const isUnassigned = !c.assignedToUserId;
                                     return (
                                         <tr
                                             key={c.id}
-                                            className="border-t hover:bg-gray-50 cursor-pointer border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer transition-colors"
-                                            onClick={(e) => {
-                                                if (!(e.target as HTMLElement).closest('a,button,input,select')) nav(`/contacts/${c.id}`);
-                                            }}
+                                            className="border-t hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer transition-colors"
+                                            onClick={(e) => { if (!(e.target as HTMLElement).closest('a,button,input,select')) nav(`/contacts/${c.id}`); }}
                                         >
-                                            {(isSuperadmin /* manager removed here */) && (
+                                            {isSuperadmin && (
                                                 <td onClick={(e) => e.stopPropagation()}>
                                                     <input
                                                         type="checkbox"
@@ -665,44 +569,25 @@ export default function ContactsPage() {
                                                 </td>
                                             )}
 
-                                            <td scope="row" className="font-mono">
-                                                {c.id}
-                                            </td>
-
-                                            <td className="font-medium">
-                                                <div>{c.fullName}</div>
-                                            </td>
+                                            <td className="font-mono">{c.id}</td>
+                                            <td className="font-medium">{c.fullName}</td>
 
                                             <td>
                                                 <div className="flex items-center gap-2">
                                                     <StatusBadge status={c.status} />
                                                     {typeof c.contactAttempts === 'number' && c.contactAttempts > 0 && (
-                                                        <span
-                                                            className="
-      inline-flex items-center px-2 py-0.5 text-xs rounded-full border
-      bg-gray-50 border-gray-200 text-gray-700
-      dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100
-    "
-                                                        >
+                                                        <span className="inline-flex items-center px-2 py-0.5 text-xs rounded-full border bg-gray-50 border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100">
                                                             {c.contactAttempts}
                                                         </span>
                                                     )}
-
                                                 </div>
                                             </td>
 
                                             <td>{renderSource(c)}</td>
-
                                             <td>{new Date(c.createdAt).toLocaleString()}</td>
 
                                             <td className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                                {/* View */}
-                                                {/* <Link to={`/contacts/${c.id}`} className="btn btn-ghost text-emerald-700">
-                                                    {t.contacts.view}
-                                                </Link> */}
-
-                                                {/* Assign dropdown: assistant/manager/superadmin */}
-                                                {(isAssistant || isManager || isSuperadmin) && (
+                                                {(isAssistant || isManager || isAdmin || isSuperadmin) && (
                                                     <div className="flex items-center gap-2">
                                                         <Select
                                                             value={c.assignedToUserId ? String(c.assignedToUserId) : ''}
@@ -713,16 +598,13 @@ export default function ContactsPage() {
                                                         >
                                                             <option value="">{busy ? 'Жүктөлүүдө...' : '— (Дайындалган жок)'}</option>
                                                             {assignables.map((u) => (
-                                                                <option key={u.id} value={u.id}>
-                                                                    {u.fullName} • {roleKg[u.role]}
-                                                                </option>
+                                                                <option key={u.id} value={u.id}>{u.fullName}</option>
                                                             ))}
                                                         </Select>
                                                         {busy && <span className="text-xs opacity-70">…</span>}
                                                     </div>
                                                 )}
 
-                                                {/* Sales: self-assign if unassigned */}
                                                 {isSales && isUnassigned && (
                                                     <button
                                                         type="button"
@@ -734,14 +616,16 @@ export default function ContactsPage() {
                                                     </button>
                                                 )}
 
-                                                {/* Delete (superadmin only; manager removed; sales never sees this) */}
-                                                {isSuperadmin && (
+                                                {/* Icon-only delete on desktop */}
+                                                {(isAdmin || isSuperadmin) && (
                                                     <button
                                                         type="button"
-                                                        className="btn btn-danger"
+                                                        className="btn btn-danger px-2 py-1"
                                                         onClick={() => askDelete(c)}
+                                                        aria-label="Өчүрүү"
+                                                        title="Өчүрүү"
                                                     >
-                                                        Өчүрүү
+                                                        <Trash2 size={16} />
                                                     </button>
                                                 )}
                                             </td>
@@ -752,51 +636,178 @@ export default function ContactsPage() {
                         </Table>
                     </div>
 
-                    <div className="flex items-center justify-between mt-3">
-                        <div>
-                            {t.contacts.page}: {data?.page ?? 1} / {totalPages}
-                        </div>
+                    {/* Desktop pagination */}
+                    <div className="hidden md:flex items-center justify-between mt-3">
+                        <div>{t.contacts.page}: {data?.page ?? 1} / {totalPages}</div>
                         <div className="flex gap-2">
-                            <button
-                                disabled={!canPrev}
-                                onClick={() => setPage((p) => p - 1)}
-                                className="btn"
-                                aria-label="Мурунку бет"
-                                title="←"
-                            >
-                                ←
-                            </button>
-                            <button
-                                disabled={!canNext}
-                                onClick={() => setPage((p) => p + 1)}
-                                className="btn"
-                                aria-label="Кийинки бет"
-                                title="→"
-                            >
-                                →
-                            </button>
+                            <button disabled={!canPrev} onClick={() => setPage((p) => p - 1)} className="btn" aria-label="Мурунку бет" title="←"><ChevronLeft size={16} /></button>
+                            <button disabled={!canNext} onClick={() => setPage((p) => p + 1)} className="btn" aria-label="Кийинки бет" title="→"><ChevronRight size={16} /></button>
                         </div>
                     </div>
                 </CardBody>
             </Card>
 
-            <NewLeadModal
-                open={newOpen}
-                onClose={() => setNewOpen(false)}
-                onCreated={async () => {
-                    await load();
-                }}
-            />
+            {/* Tablet & Mobile card grid (lg:hidden) */}
+            <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-2">
+                {loading && Array.from({ length: 6 }).map((_, i) => (
+                    <Card key={i}><CardBody><Skeleton className="h-16 w-full" /></CardBody></Card>
+                ))}
 
-            {/* Single delete confirm */}
+                {!loading && (data?.items?.length ?? 0) === 0 && (
+                    <Card>
+                        <CardBody>
+                            <div className="p-6 text-center text-gray-500 dark:text-gray-400">{t.contacts.empty}</div>
+                        </CardBody>
+                    </Card>
+                )}
+
+                {data?.items?.map((c) => {
+                    const busy = !!assignBusy[c.id];
+                    const isUnassigned = !c.assignedToUserId;
+                    const checked = selected.includes(c.id);
+                    const prov = c.sourceProvider?.trim();
+
+                    return (
+                        <Card
+                            key={c.id}
+                            className="overflow-hidden cursor-pointer"
+                            onClick={() => nav(`/contacts/${c.id}`)}
+                        >
+                            {/* Compact header */}
+                            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/60">
+                                <div className="min-w-0">
+                                    <div className="font-semibold truncate">{c.fullName}</div>
+                                    <div className="text-xs text-gray-500 truncate">#{c.id} • {new Date(c.createdAt).toLocaleDateString()}</div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    {typeof c.contactAttempts === 'number' && c.contactAttempts > 0 && (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 text-[11px] rounded-full border bg-gray-50 border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100">
+                                            {c.contactAttempts}
+                                        </span>
+                                    )}
+
+                                    {/* Superadmin: checkbox (shown on md+) + icon delete */}
+                                    {isSuperadmin && (
+                                        <>
+                                            <label
+                                                className="hidden md:flex items-center gap-1 text-[11px]"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) setSelected((s) => [...s, c.id]);
+                                                        else setSelected((s) => s.filter((id) => id !== c.id));
+                                                    }}
+                                                    aria-label={`Тандоо #${c.id}`}
+                                                />
+                                                Тандоо
+                                            </label>
+
+                                            <button
+                                                type="button"
+                                                className="btn btn-danger px-2 py-1"
+                                                aria-label="Өчүрүү"
+                                                title="Өчүрүү"
+                                                onClick={(e) => { e.stopPropagation(); askDelete(c); }}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            <CardBody className="p-3">
+                                {/* Status + condensed source */}
+                                <div className="flex items-center justify-between gap-2">
+                                    <StatusBadge status={c.status} />
+                                    <div className="text-[12px] text-gray-500 dark:text-gray-400 truncate">
+                                        {(c.source || '—')}{prov ? ` • ${prov}` : ''}
+                                    </div>
+                                </div>
+
+                                {/* Compact actions */}
+                                <div className="mt-2 flex flex-wrap items-center gap-2">
+                                    {(isAssistant || isManager || isAdmin || isSuperadmin) && (
+                                        <div onClick={(e) => e.stopPropagation()}>
+                                            <Select
+                                                value={c.assignedToUserId ? String(c.assignedToUserId) : ''}
+                                                onChange={(e) => onAssignChange(c.id, e.target.value)}
+                                                disabled={busy}
+                                                aria-label="Жооптуу адам"
+                                            >
+                                                <option value="">{busy ? 'Жүктөлүүдө...' : '— Дайындалган жок'}</option>
+                                                {assignables.map((u) => (
+                                                    <option key={u.id} value={u.id}>{u.fullName}</option>
+                                                ))}
+                                            </Select>
+                                        </div>
+                                    )}
+
+                                    {isSales && isUnassigned && (
+                                        <button
+                                            type="button"
+                                            className="btn btn-primary"
+                                            disabled={busy}
+                                            onClick={(e) => { e.stopPropagation(); onSelfAssign(c.id); }}
+                                        >
+                                            {busy ? 'Жүктөлүүдө…' : 'Өзүмө алуу'}
+                                        </button>
+                                    )}
+                                </div>
+                            </CardBody>
+                        </Card>
+                    );
+                })}
+            </div>
+
+            {/* Tablet/Mobile pagination */}
+            <div className="lg:hidden flex items-center justify-between py-2">
+                <button disabled={!canPrev} onClick={() => setPage((p) => p - 1)} className="btn" aria-label="Мурунку бет">
+                    <ChevronLeft size={16} />
+                </button>
+                <div className="text-sm">{t.contacts.page}: {data?.page ?? 1} / {totalPages}</div>
+                <button disabled={!canNext} onClick={() => setPage((p) => p + 1)} className="btn" aria-label="Кийинки бет">
+                    <ChevronRight size={16} />
+                </button>
+            </div>
+
+            {/* Floating create button (mobile) */}
+            {/* <button
+                onClick={() => setNewOpen(true)}
+                className="md:hidden fixed right-4 bottom-20 z-40 rounded-full btn btn-primary shadow-lg px-4 py-3"
+                style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0px)' }}
+                aria-label="Жаңы лид"
+                title="Жаңы лид"
+            >
+                <Plus size={18} className="mr-1" /> {createLabel}
+            </button> */}
+
+            {/* Sticky bulk bar (mobile superadmin) */}
+            {isSuperadmin && hasSelection && (
+                <div
+                    className="md:hidden fixed left-0 right-0 bottom-0 z-40 border-t bg-white/95 dark:bg-gray-900/95 backdrop-blur px-3 py-3 flex items-center justify-between"
+                    style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0px)' }}
+                >
+                    <div className="text-sm">{selected.length} тандалды</div>
+                    <div className="flex gap-2">
+                        <button className="btn btn-danger" onClick={openBulkDelete}>Өчүрүү</button>
+                        <button className="btn btn-warning" onClick={openBulkPurge}>Түбөлүк өчүрүү</button>
+                    </div>
+                </div>
+            )}
+
+            {/* Modals */}
+            <NewLeadModal open={newOpen} onClose={() => setNewOpen(false)} onCreated={async () => { await load(); }} />
+
+            {/* Single delete */}
             <ConfirmDialog
                 open={confirmOpen}
                 title="Өчүрүүнү тастыктаңыз"
-                message={
-                    target
-                        ? `Чын эле бул контактты өчүрөсүзбү?\n\nID: ${target.id}\nАты-жөнү: ${target.fullName}`
-                        : 'Чын эле өчүргүңүз келеби?'
-                }
+                message={target ? `Чын эле бул контактты өчүрөсүзбү?\n\nID: ${target.id}\nАты-жөнү: ${target.fullName}` : 'Чын эле өчүргүңүз келеби?'}
                 confirmText="Ооба, өчүр"
                 cancelText="Жокко чыгаруу"
                 loading={confirmLoading}
@@ -804,15 +815,11 @@ export default function ContactsPage() {
                 onCancel={() => (!confirmLoading ? (setConfirmOpen(false), setTarget(null)) : undefined)}
             />
 
-            {/* Bulk delete / purge confirm (superadmin-only) */}
+            {/* Bulk delete/purge */}
             <ConfirmDialog
                 open={!!bulkMode}
                 title={bulkMode === 'purge' ? 'Тастыктаңыз: түбөлүк өчүрүү' : 'Өчүрүүнү тастыктаңыз'}
-                message={
-                    bulkMode === 'purge'
-                        ? `Бул контакттар түбөлүк өчүрүлөт (${selected.length} даана).\nБул аракет артка кайтарылбайт.`
-                        : `Чын эле ${selected.length} контактты өчүрөсүзбү?`
-                }
+                message={bulkMode === 'purge' ? `Бул контакттар түбөлүк өчүрүлөт (${selected.length} даана).\nБул аракет артка кайтарылбайт.` : `Чын эле ${selected.length} контактты өчүрөсүзбү?`}
                 confirmText={bulkMode === 'purge' ? 'Ооба, түбөлүк өчүр' : 'Ооба, өчүр'}
                 cancelText="Жокко чыгаруу"
                 loading={confirmLoading}
@@ -821,4 +828,34 @@ export default function ContactsPage() {
             />
         </div>
     );
+
+    // --- helpers ---
+    async function onAssignChange(contactId: number, assigneeStr: string) {
+        const assigneeUserId = assigneeStr === '' ? null : Number(assigneeStr);
+        setAssignBusy((m) => ({ ...m, [contactId]: true }));
+        try {
+            await api.post('/contacts/assign', { contactId, assigneeUserId });
+            toast.push({ title: 'OK', message: assigneeUserId ? 'Жооптуу адам дайындалды.' : 'Жооптуу адам алынды.', variant: 'success' });
+            await load();
+        } catch (e: any) {
+            const raw = e?.response?.data?.message ?? e?.message ?? 'Дайындоодо ката кетти.';
+            toast.push({ title: 'Ката', message: Array.isArray(raw) ? raw.join('\n') : String(raw), variant: 'error' });
+        } finally {
+            setAssignBusy((m) => ({ ...m, [contactId]: false }));
+        }
+    }
+
+    async function onSelfAssign(contactId: number) {
+        setAssignBusy((m) => ({ ...m, [contactId]: true }));
+        try {
+            await api.patch(`/contacts/${contactId}/self-assign`);
+            toast.push({ title: 'OK', message: 'Лид өзүңүзгө дайындалды.', variant: 'success' });
+            await load();
+        } catch (e: any) {
+            const raw = e?.response?.data?.message ?? e?.message ?? 'Ката кетти.';
+            toast.push({ title: 'Ката', message: Array.isArray(raw) ? raw.join('\n') : String(raw), variant: 'error' });
+        } finally {
+            setAssignBusy((m) => ({ ...m, [contactId]: false }));
+        }
+    }
 }
