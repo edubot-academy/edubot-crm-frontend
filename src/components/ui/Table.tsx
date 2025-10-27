@@ -40,7 +40,7 @@ export function THead({ children }: { children: React.ReactNode }) {
 
     // Keep header text color defaults here (bg is per <th>)
     return (
-        <thead className="text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-800">
+        <thead className="text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-800 z-20 relative">
             {normalized}
         </thead>
     );
