@@ -8,7 +8,8 @@ import Select from '@/components/ui/Select';
 import { Table, TBody, THead } from '@/components/ui/Table';
 import StatusBadge from '@/components/StatusBadge';
 import Skeleton from '@/components/ui/Skeleton';
-import { Search, Plus, Trash2, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import Button from '@/components/ui/Button';
+import { Search, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import NewLeadModal from '@/components/NewLeadModal';
 import { useToast } from '@/components/ui/Toast';
 import { currentUser } from '@/lib/auth';
@@ -141,8 +142,22 @@ function ConfirmDialog({
                     </div>
                     <div className="p-5 text-sm text-gray-700 dark:text-gray-200 whitespace-pre-line">{message}</div>
                     <div className="p-4 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-2">
-                        <button className="btn" onClick={onCancel} disabled={loading}>{cancelText}</button>
-                        <button className="btn btn-danger" onClick={onConfirm} disabled={loading}>{loading ? 'Аткарылууда…' : confirmText}</button>
+                        <Button
+                            variant="ghost"
+                            onClick={onCancel}
+                            disabled={loading}
+                            size="sm"
+                        >
+                            {cancelText}
+                        </Button>
+                        <Button
+                            variant="danger"
+                            onClick={onConfirm}
+                            disabled={loading}
+                            size="sm"
+                        >
+                            {loading ? 'Аткарылууда…' : confirmText}
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -168,7 +183,6 @@ export default function ContactsPage() {
     const nav = useNavigate();
     const [newOpen, setNewOpen] = useState(false);
     const toast = useToast();
-
 
     // Assignables
     const [assignables, setAssignables] = useState<UserLite[]>([]);
@@ -359,27 +373,27 @@ export default function ContactsPage() {
     // --- UI ---
     return (
         <div className="space-y-4">
-            {/* Header + actions */}
-            {/* Mobile sticky header (button next to title) */}
+            {/* Mobile sticky header */}
             <div
                 className="
-    md:hidden sticky top-14 z-30
-    -mx-4 px-4 py-2
-    bg-white/85 dark:bg-gray-900/85 backdrop-blur
-    supports-[backdrop-filter]:bg-white/60
-    border-b border-gray-200 dark:border-gray-800
-    flex items-center justify-between
-  "
+          md:hidden sticky top-14 z-30
+          -mx-4 px-4 py-2
+          bg-white/85 dark:bg-gray-900/85 backdrop-blur
+          supports-[backdrop-filter]:bg-white/60
+          border-b border-gray-200 dark:border-gray-800
+          flex items-center justify-between
+        "
             >
                 <h1 className="text-base font-semibold truncate">{t.contacts.title}</h1>
-                <button
+                <Button
+                    variant="primary"
                     onClick={() => setNewOpen(true)}
-                    className="btn btn-primary px-3 py-1 text-sm"
                     aria-label="Жаңы лид"
                     title="Жаңы лид"
+                    size="sm"
                 >
                     {createLabel}
-                </button>
+                </Button>
             </div>
 
             {/* Desktop header + actions */}
@@ -388,27 +402,34 @@ export default function ContactsPage() {
                 <div className="flex items-center gap-2">
                     {selected.length > 0 && isSuperadmin && (
                         <>
-                            <button className="btn btn-danger" onClick={openBulkDelete}>
+                            <Button
+                                variant="danger"
+                                onClick={openBulkDelete}
+                            >
                                 Тандалгандарды өчүрүү ({selected.length})
-                            </button>
-                            <button className="btn btn-warning" onClick={openBulkPurge}>
+                            </Button>
+                            <Button
+                                variant="danger"
+                                onClick={openBulkPurge}
+                            >
                                 Тандалгандарды түбөлүк өчүрүү
-                            </button>
+                            </Button>
                         </>
                     )}
-                    <button onClick={() => setNewOpen(true)} className="btn btn-primary">
+                    <Button
+                        variant="primary"
+                        onClick={() => setNewOpen(true)}
+                    >
                         {createLabel}
-                    </button>
+                    </Button>
                 </div>
             </div>
-
 
             {/* Filters */}
             <Card>
                 <CardBody>
                     {/* Mobile – compact */}
                     <div className="md:hidden space-y-2">
-                        {/* Search (no label, lean spacing) */}
                         <div className="relative">
                             <Input
                                 value={typedQ}
@@ -429,14 +450,12 @@ export default function ContactsPage() {
                             <Search size={16} className="absolute right-3 bottom-3 opacity-60 text-gray-500 dark:text-gray-400" />
                         </div>
 
-                        {/* Toolbar: filters toggle + summary */}
                         <div className="flex items-center justify-end">
                             <div className="text-xs text-gray-600 dark:text-gray-300">
                                 {t.contacts.page}: {data?.page ?? 1} / {data?.totalPages ?? 1} • {data?.total ?? 0}
                             </div>
                         </div>
 
-                        {/* Collapsible filters */}
                         <div id="mobile-filters" className='grid grid-cols-2 gap-2'>
                             <Select
                                 value={status}
@@ -460,9 +479,8 @@ export default function ContactsPage() {
                         </div>
                     </div>
 
-                    {/* Desktop / Tablet – original 4-col grid */}
+                    {/* Desktop / Tablet – 4-col grid */}
                     <div className="hidden md:grid md:grid-cols-4 gap-3">
-                        {/* Search */}
                         <div className="relative">
                             <label className="block text-sm mb-1">{t.contacts.search}</label>
                             <Input
@@ -484,7 +502,6 @@ export default function ContactsPage() {
                             <Search size={16} className="absolute right-3 bottom-4 opacity-60 text-gray-500 dark:text-gray-400" />
                         </div>
 
-                        {/* Status */}
                         <div>
                             <label className="block text-sm mb-1">{t.contacts.status}</label>
                             <Select value={status} onChange={(e) => { setPage(1); setStatus(e.target.value); }} aria-label="Статус боюнча чыпкалоо">
@@ -494,7 +511,6 @@ export default function ContactsPage() {
                             </Select>
                         </div>
 
-                        {/* Per page */}
                         <div>
                             <label className="block text-sm mb-1">{t.contacts.perPage}</label>
                             <Select value={String(limit)} onChange={(e) => { setPage(1); setLimit(Number(e.target.value)); }} aria-label="Беттеги сан">
@@ -504,7 +520,6 @@ export default function ContactsPage() {
                             </Select>
                         </div>
 
-                        {/* Summary */}
                         <div className="flex items-end">
                             <div className="text-sm text-gray-600 dark:text-gray-300">
                                 Натыйжа: {data?.total ?? 0} • {t.contacts.page}: {data?.page ?? 1} / {data?.totalPages ?? 1}
@@ -514,7 +529,6 @@ export default function ContactsPage() {
                     </div>
                 </CardBody>
             </Card>
-
 
             {/* Desktop table (lg+) */}
             <Card className="hidden lg:block">
@@ -606,27 +620,26 @@ export default function ContactsPage() {
                                                 )}
 
                                                 {isSales && isUnassigned && (
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-primary"
+                                                    <Button
+                                                        variant="primary"
                                                         disabled={busy}
                                                         onClick={() => onSelfAssign(c.id)}
+                                                        size="sm"
                                                     >
                                                         {busy ? 'Жүктөлүүдө…' : 'Өзүмө алуу'}
-                                                    </button>
+                                                    </Button>
                                                 )}
 
-                                                {/* Icon-only delete on desktop */}
                                                 {(isAdmin || isSuperadmin) && (
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-danger px-2 py-1"
+                                                    <Button
+                                                        variant="danger"
                                                         onClick={() => askDelete(c)}
                                                         aria-label="Өчүрүү"
                                                         title="Өчүрүү"
+                                                        size="sm"
                                                     >
                                                         <Trash2 size={16} />
-                                                    </button>
+                                                    </Button>
                                                 )}
                                             </td>
                                         </tr>
@@ -640,8 +653,26 @@ export default function ContactsPage() {
                     <div className="hidden md:flex items-center justify-between mt-3">
                         <div>{t.contacts.page}: {data?.page ?? 1} / {totalPages}</div>
                         <div className="flex gap-2">
-                            <button disabled={!canPrev} onClick={() => setPage((p) => p - 1)} className="btn" aria-label="Мурунку бет" title="←"><ChevronLeft size={16} /></button>
-                            <button disabled={!canNext} onClick={() => setPage((p) => p + 1)} className="btn" aria-label="Кийинки бет" title="→"><ChevronRight size={16} /></button>
+                            <Button
+                                variant="ghost"
+                                disabled={!canPrev}
+                                onClick={() => setPage((p) => p - 1)}
+                                aria-label="Мурунку бет"
+                                title="←"
+                                size="sm"
+                            >
+                                <ChevronLeft size={16} />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                disabled={!canNext}
+                                onClick={() => setPage((p) => p + 1)}
+                                aria-label="Кийинки бет"
+                                title="→"
+                                size="sm"
+                            >
+                                <ChevronRight size={16} />
+                            </Button>
                         </div>
                     </div>
                 </CardBody>
@@ -687,7 +718,6 @@ export default function ContactsPage() {
                                         </span>
                                     )}
 
-                                    {/* Superadmin: checkbox (shown on md+) + icon delete */}
                                     {isSuperadmin && (
                                         <>
                                             <label
@@ -706,15 +736,15 @@ export default function ContactsPage() {
                                                 Тандоо
                                             </label>
 
-                                            <button
-                                                type="button"
-                                                className="btn btn-danger px-2 py-1"
+                                            <Button
+                                                variant="danger"
                                                 aria-label="Өчүрүү"
                                                 title="Өчүрүү"
                                                 onClick={(e) => { e.stopPropagation(); askDelete(c); }}
+                                                size="sm"
                                             >
                                                 <Trash2 size={16} />
-                                            </button>
+                                            </Button>
                                         </>
                                     )}
                                 </div>
@@ -748,14 +778,14 @@ export default function ContactsPage() {
                                     )}
 
                                     {isSales && isUnassigned && (
-                                        <button
-                                            type="button"
-                                            className="btn btn-primary"
+                                        <Button
+                                            variant="primary"
                                             disabled={busy}
                                             onClick={(e) => { e.stopPropagation(); onSelfAssign(c.id); }}
+                                            size="sm"
                                         >
                                             {busy ? 'Жүктөлүүдө…' : 'Өзүмө алуу'}
-                                        </button>
+                                        </Button>
                                     )}
                                 </div>
                             </CardBody>
@@ -766,25 +796,26 @@ export default function ContactsPage() {
 
             {/* Tablet/Mobile pagination */}
             <div className="lg:hidden flex items-center justify-between py-2">
-                <button disabled={!canPrev} onClick={() => setPage((p) => p - 1)} className="btn" aria-label="Мурунку бет">
+                <Button
+                    variant="ghost"
+                    disabled={!canPrev}
+                    onClick={() => setPage((p) => p - 1)}
+                    aria-label="Мурунку бет"
+                    size="sm"
+                >
                     <ChevronLeft size={16} />
-                </button>
+                </Button>
                 <div className="text-sm">{t.contacts.page}: {data?.page ?? 1} / {totalPages}</div>
-                <button disabled={!canNext} onClick={() => setPage((p) => p + 1)} className="btn" aria-label="Кийинки бет">
+                <Button
+                    variant="ghost"
+                    disabled={!canNext}
+                    onClick={() => setPage((p) => p + 1)}
+                    aria-label="Кийинки бет"
+                    size="sm"
+                >
                     <ChevronRight size={16} />
-                </button>
+                </Button>
             </div>
-
-            {/* Floating create button (mobile) */}
-            {/* <button
-                onClick={() => setNewOpen(true)}
-                className="md:hidden fixed right-4 bottom-20 z-40 rounded-full btn btn-primary shadow-lg px-4 py-3"
-                style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0px)' }}
-                aria-label="Жаңы лид"
-                title="Жаңы лид"
-            >
-                <Plus size={18} className="mr-1" /> {createLabel}
-            </button> */}
 
             {/* Sticky bulk bar (mobile superadmin) */}
             {isSuperadmin && hasSelection && (
@@ -794,8 +825,20 @@ export default function ContactsPage() {
                 >
                     <div className="text-sm">{selected.length} тандалды</div>
                     <div className="flex gap-2">
-                        <button className="btn btn-danger" onClick={openBulkDelete}>Өчүрүү</button>
-                        <button className="btn btn-warning" onClick={openBulkPurge}>Түбөлүк өчүрүү</button>
+                        <Button
+                            variant="danger"
+                            onClick={openBulkDelete}
+                            size="sm"
+                        >
+                            Өчүрүү
+                        </Button>
+                        <Button
+                            variant="danger"
+                            onClick={openBulkPurge}
+                            size="sm"
+                        >
+                            Түбөлүк өчүрүү
+                        </Button>
                     </div>
                 </div>
             )}

@@ -1,13 +1,12 @@
 import React from 'react';
 import {
     Mail, Phone, Tag, CalendarClock, Flag, Save, X, ArrowLeft,
-    // MoreHorizontal, Send, ArrowRightLeft,
     Pencil, ShieldCheck, Info,
 } from 'lucide-react';
 import { Card, CardBody, Section } from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
-import { PrimaryButton, GhostButton, SubtleButton } from '@/components/ui/Button';
+import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/StatusBadge';
 import { Tabs } from '@/components/ui/Tabs';
 import FollowUpBanner from './FollowUpBanner';
@@ -108,14 +107,15 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
         "
             >
                 <div className="flex items-center gap-3 min-w-0 w-full">
-                    <button
+                    <Button
+                        variant="ghost"
                         onClick={navBack}
-                        className="btn"
                         title="Артка"
                         aria-label="Артка"
+                        size="sm"
                     >
                         <ArrowLeft className="w-4 h-4" />
-                    </button>
+                    </Button>
 
                     {/* Avatar chip */}
                     <div
@@ -171,7 +171,8 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                 {/* Actions */}
                 <div className="flex gap-2 shrink-0">
                     {!editing ? (
-                        <GhostButton
+                        <Button
+                            variant="ghost"
                             onClick={() => canEdit && setEditing(true)}
                             disabled={!canEdit}
                             title={!canEdit ? 'Бул бетти өзгөртүү укугуңуз жок' : undefined}
@@ -179,17 +180,25 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                         >
                             <Pencil className="w-4 h-4" />
                             <span className="hidden md:inline ml-1">Оңдоо</span>
-                        </GhostButton>
+                        </Button>
                     ) : (
                         <>
-                            <GhostButton onClick={cancel} className="px-2 py-1 md:px-3">
+                            <Button variant="ghost" onClick={cancel} className="px-2 py-1 md:px-3">
                                 <X className="w-4 h-4" />
                                 <span className="hidden md:inline ml-1">{t.contacts.cancel}</span>
-                            </GhostButton>
-                            <PrimaryButton onClick={save} disabled={!canSave} className="px-2 py-1 md:px-3">
+                            </Button>
+                            <Button
+                                variant="primary"
+                                onClick={save}
+                                disabled={!canSave}
+                                className="px-2 py-1 md:px-3"
+                                loading={saving}
+                            >
                                 <Save className="w-4 h-4" />
-                                <span className="hidden md:inline ml-1">{saving ? t.contacts.saving : t.contacts.save}</span>
-                            </PrimaryButton>
+                                <span className="hidden md:inline ml-1">
+                                    {saving ? t.contacts.saving : t.contacts.save}
+                                </span>
+                            </Button>
                         </>
                     )}
                 </div>
@@ -211,12 +220,16 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                         <span className="ml-1">Статусту <b>ЖООП ЖОК</b> кылууну же кийинки байланыш убакытты коюуну сунуштайбыз.</span>
                     </div>
                     <div className="flex gap-2">
-                        <GhostButton className="dark:hover:text-amber-50" onClick={() => setStatusViaBanner('NO_RESPONSE')}>
+                        <Button variant="ghost" className="dark:hover:text-amber-50" onClick={() => setStatusViaBanner('NO_RESPONSE')}>
                             Жооп жок
-                        </GhostButton>
-                        <PrimaryButton onClick={() => canEdit && setEditing(true)} disabled={!canEdit}>
+                        </Button>
+                        <Button
+                            variant="primary"
+                            onClick={() => canEdit && setEditing(true)}
+                            disabled={!canEdit}
+                        >
                             Кайра байланыш убактысын коюу
-                        </PrimaryButton>
+                        </Button>
                     </div>
                 </div>
             )}
@@ -234,28 +247,42 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                         <span className="ml-1">Бул лидди <b>ЖОГОЛДУ</b> катары белгилөөгө убакыт келдиби?</span>
                     </div>
                     <div className="flex gap-2">
-                        <GhostButton className="dark:hover:text-red-50" onClick={() => setStatusViaBanner('LOST')}>
+                        <Button
+                            variant="danger"
+                            className="dark:hover:text-red-50"
+                            onClick={() => setStatusViaBanner('LOST')}
+                        >
                             Жоголду
-                        </GhostButton>
-                        <PrimaryButton onClick={() => canEdit && setEditing(true)} disabled={!canEdit}>
+                        </Button>
+                        <Button
+                            onClick={() => canEdit && setEditing(true)}
+                            disabled={!canEdit}
+                            variant="primary"
+                        >
                             Дагы бир аракет
-                        </PrimaryButton>
+                        </Button>
                     </div>
                 </div>
             )}
 
             {c.status === 'CONTACTED' && (
                 <div className="flex items-center gap-2 mt-2">
-                    <PrimaryButton disabled={!editing || !canEdit} onClick={markRespondedNow}>
+                    <Button
+                        variant="primary"
+                        onClick={markRespondedNow}
+                        loading={saving}
+                    >
                         Жооп берди
-                    </PrimaryButton>
-                    <GhostButton
+                    </Button>
+
+                    <Button
+                        variant="ghost"
                         disabled={!editing || !canEdit}
                         onClick={markNoResponse}
                         className="dark:hover:text-gray-100"
                     >
                         Жооп жок
-                    </GhostButton>
+                    </Button>
                 </div>
             )}
 
@@ -274,12 +301,12 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
             {/* Sub header with tabs + last update (scrollable on mobile) */}
             <div
                 className="
-    border-b pb-2
-    bg-white/70 dark:bg-gray-900/70 backdrop-blur-[2px]
-    border-gray-200 dark:border-gray-800 rounded-t-md
-    px-2 pt-2
-    flex flex-col sm:flex-row sm:items-center sm:justify-between
-  "
+          border-b pb-2
+          bg-white/70 dark:bg-gray-900/70 backdrop-blur-[2px]
+          border-gray-200 dark:border-gray-800 rounded-t-md
+          px-2 pt-2
+          flex flex-col sm:flex-row sm:items-center sm:justify-between
+        "
             >
                 {/* Tabs — scrollable horizontally on mobile */}
                 <div className="overflow-x-auto no-scrollbar -mx-2 px-2 flex-1">
@@ -298,11 +325,11 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                 {/* Last update label below on mobile, half-height style */}
                 <div
                     className="
-      text-[11px] sm:text-xs text-gray-500 dark:text-gray-300
-      mt-1 sm:mt-0 sm:ml-3
-      leading-tight break-words
-      flex-1 sm:flex-none
-    "
+            text-[11px] sm:text-xs text-gray-500 dark:text-gray-300
+            mt-1 sm:mt-0 sm:ml-3
+            leading-tight break-words
+            flex-1 sm:flex-none
+          "
                 >
                     <div className="max-h-[2.5em] overflow-hidden">
                         {lastUpdateLabel}
@@ -355,13 +382,15 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                                     <div className="flex items-center gap-2">
                                         <span className="text-gray-600 dark:text-gray-300">{attempts}</span>
                                         {isSalesOrManager && (
-                                            <SubtleButton
+                                            <Button
+                                                variant="subtle"
                                                 title="Жаңы аракет белгилөө"
                                                 onClick={onOutreach}
                                                 className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                                                size="sm"
                                             >
                                                 +1
-                                            </SubtleButton>
+                                            </Button>
                                         )}
                                     </div>
                                 </li>
@@ -409,9 +438,13 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                                         })}
                                     </div>
                                     {primaryNext && (
-                                        <PrimaryButton onClick={() => setStatus(primaryNext)} disabled={!canEdit || !editing}>
+                                        <Button
+                                            variant="primary"
+                                            onClick={() => setStatus(primaryNext)}
+                                            disabled={!canEdit || !editing}
+                                        >
                                             Кийинки статус: {STATUS_LABELS[primaryNext]}
-                                        </PrimaryButton>
+                                        </Button>
                                     )}
                                 </div>
 
@@ -512,14 +545,16 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                                                 aria-label="Кийинки байланыш убактысы"
                                             />
                                             {nextFollowUpAt && (
-                                                <SubtleButton
+                                                <Button
+                                                    variant="subtle"
                                                     onClick={() => (editing && canEdit) && setNextFollowUpAt('')}
                                                     title="Такташ"
                                                     disabled={!(editing && canEdit)}
                                                     className="px-2 py-1 shrink-0 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+                                                    size="sm"
                                                 >
                                                     Өчүрүү
-                                                </SubtleButton>
+                                                </Button>
                                             )}
                                         </div>
                                     </div>
@@ -616,10 +651,12 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                                     {/* Bottom action row (only in edit mode, desktop/tablet) */}
                                     {editing && (
                                         <div className="hidden md:flex md:col-span-2 gap-2 justify-end">
-                                            <GhostButton onClick={cancel}><X className="w-4 h-4" /> {t.contacts.cancel}</GhostButton>
-                                            <PrimaryButton disabled={!canSave} onClick={save}>
+                                            <Button variant="ghost" onClick={cancel}>
+                                                <X className="w-4 h-4" /> {t.contacts.cancel}
+                                            </Button>
+                                            <Button variant="primary" disabled={!canSave} onClick={save} loading={saving}>
                                                 <Save className="w-4 h-4" /> {saving ? t.contacts.saving : t.contacts.save}
-                                            </PrimaryButton>
+                                            </Button>
                                         </div>
                                     )}
                                 </div>
@@ -638,8 +675,12 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                                             placeholder="Лид менен сүйлөштүк, ата-энеси менен кеңешишет..."
                                         />
                                         <div className="mt-2 flex justify-end gap-2">
-                                            <GhostButton onClick={() => setNoteText('')} disabled={!noteText.trim()}>Тазалоо</GhostButton>
-                                            <PrimaryButton onClick={addNote} disabled={!noteText.trim()}>Сактоо</PrimaryButton>
+                                            <Button variant="ghost" onClick={() => setNoteText('')} disabled={!noteText.trim()}>
+                                                Тазалоо
+                                            </Button>
+                                            <Button variant="primary" onClick={addNote} disabled={!noteText.trim()}>
+                                                Сактоо
+                                            </Button>
                                         </div>
                                     </div>
 

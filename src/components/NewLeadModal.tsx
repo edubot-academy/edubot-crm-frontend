@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
-import { PrimaryButton, GhostButton } from '@/components/ui/Button';
+import Button from '@/components/ui/Button';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import type { SubmitHandler } from 'react-hook-form';
@@ -141,26 +141,29 @@ export default function NewLeadModal({ open, onClose, onCreated }: Props) {
             }}
             title="Жаңы лид кошуу"
             size="xl"
-            className="sm:max-w-2xl" // match previous md:max-w-2xl
+            className="sm:max-w-2xl"
             footer={
                 <div className="flex items-center justify-end gap-2 w-full">
-                    <GhostButton
+                    <Button
                         type="button"
+                        variant="ghost"
                         onClick={() => {
                             reset();
                             onClose();
                         }}
                     >
                         Жокко чыгаруу
-                    </GhostButton>
-                    <PrimaryButton
+                    </Button>
+                    <Button
                         type="submit"
                         form="new-lead-form"
+                        variant="primary"
+                        loading={isSubmitting}
                         disabled={isSubmitting}
                         onClick={() => (document.activeElement as HTMLElement)?.blur()}
                     >
                         {isSubmitting ? 'Жүктөлүүдө...' : 'Сактоо'}
-                    </PrimaryButton>
+                    </Button>
                 </div>
             }
         >
@@ -240,7 +243,7 @@ export default function NewLeadModal({ open, onClose, onCreated }: Props) {
                         <Field className="md:col-span-2" label="Билдирүү (каалоо-тилек)" error={errors.message?.message}>
                             <textarea
                                 className="
-                  input min-h-[84px] md:min-h-[100px] text-sm
+                  input min-h=[84px] md:min-h-[100px] text-sm
                   bg-white text-gray-900 placeholder-gray-400
                   dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500
                 "

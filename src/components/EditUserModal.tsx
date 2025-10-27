@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React from 'react';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
-import { PrimaryButton, GhostButton } from '@/components/ui/Button';
+import Button from '@/components/ui/Button';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import type { UserRole } from '@/components/NewUserModal';
@@ -11,22 +11,20 @@ import { currentUser } from '@/lib/auth';
 
 // ---- Role helpers (unchanged) ----
 function visibleRoles(actor: UserRole, target: UserRole): UserRole[] {
-    if (actor === 'superadmin') return ROLE_ORDER; // full control
+    if (actor === 'superadmin') return ROLE_ORDER;
     if (actor === 'admin') {
-        if (target === 'superadmin') return []; // cannot change superadmin at all
-        return ROLE_ORDER.filter((r) => r !== 'superadmin'); // up to admin
+        if (target === 'superadmin') return [];
+        return ROLE_ORDER.filter((r) => r !== 'superadmin');
     }
-    return []; // others cannot change roles
+    return [];
 }
-
 function canEditIdentity(actor: UserRole, target: UserRole) {
     if (actor === 'superadmin') return true;
     if (actor === 'admin') return target !== 'superadmin';
     return false;
 }
-
 function canChangeRole(actor: UserRole, target: UserRole, selfEdit: boolean) {
-    if (selfEdit) return actor === 'superadmin'; // only superadmin can change their own role
+    if (selfEdit) return actor === 'superadmin';
     if (actor === 'superadmin') return true;
     if (actor === 'admin') return target !== 'superadmin';
     return false;
@@ -59,12 +57,12 @@ export default function EditUserModal({
     const meRole = (me?.role ?? 'sales') as UserRole;
     const selfEdit = !!user && me?.id === user.id;
 
-    const [form, setForm] = useState(() => ({
+    const [form, setForm] = React.useState(() => ({
         fullName: user?.fullName ?? '',
         email: user?.email ?? '',
         role: (user?.role ?? 'sales') as UserRole,
     }));
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = React.useState(false);
 
     React.useEffect(() => {
         setForm({
@@ -77,22 +75,18 @@ export default function EditUserModal({
     const canEdit = user ? canEditIdentity(meRole, user.role) : false;
     const canRole = user ? canChangeRole(meRole, user.role, selfEdit) : false;
 
-    const roleOptions = useMemo<UserRole[]>(() => {
+    const roleOptions = React.useMemo<UserRole[]>(() => {
         if (!user) return [];
         return visibleRoles(meRole, user.role);
     }, [meRole, user]);
 
-    if (!user) {
-        // Modal will handle `open` false; early return keeps types happy
-        return null;
-    }
+    if (!user) return null;
 
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
         try {
             setLoading(true);
 
-            // Only send fields user is allowed to change
             const payload: Partial<typeof form> = {};
             if (canEdit) {
                 payload.fullName = form.fullName;
@@ -126,13 +120,15 @@ export default function EditUserModal({
             open={open}
             onClose={onClose}
             title="Колдонуучуну өзгөртүү"
-            size="md" // ~ sm:max-w-md to match your previous sizing
+            size="md"
             footer={
                 <div className="flex items-center justify-end gap-2 w-full">
-                    <GhostButton type="button" onClick={onClose}>Жокко чыгаруу</GhostButton>
-                    <PrimaryButton type="submit" form="edit-user-form" disabled={loading}>
+                    <Button type="button" variant="ghost" onClick={onClose}>
+                        Жокко чыгаруу
+                    </Button>
+                    <Button type="submit" form="edit-user-form" variant="primary" loading={loading} disabled={loading}>
                         {loading ? 'Сакталууда...' : 'Сактоо'}
-                    </PrimaryButton>
+                    </Button>
                 </div>
             }
         >

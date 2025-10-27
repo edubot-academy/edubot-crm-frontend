@@ -8,7 +8,7 @@ import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import { Table, TBody, THead } from '@/components/ui/Table';
 import Skeleton from '@/components/ui/Skeleton';
-import { PrimaryButton, GhostButton, SubtleButton } from '@/components/ui/Button';
+import Button from '@/components/ui/Button';
 import NewUserModal, { UserRole } from '@/components/NewUserModal';
 import EditUserModal from '@/components/EditUserModal';
 import { useToast } from '@/components/ui/Toast';
@@ -230,23 +230,33 @@ export default function AdminPage() {
                     Админ панель
                     <span className="text-base block font-semibold truncate">Колдонуучулар</span>
                 </h1>
-                {me?.role !== 'sales' && me?.role !== 'assistant' && (<button
-                    onClick={() => setNewOpen(true)}
-                    className="btn btn-primary px-3 py-1 text-sm"
-                    aria-label="Жаңы колдонуучу"
-                    title="Жаңы колдонуучу"
-                    disabled={!canAdmin}
-                >
-                    <Plus size={16} className="mr-1" />
-                </button>)}
+                {me?.role !== 'sales' && me?.role !== 'assistant' && (
+                    <Button
+                        variant="primary"
+                        onClick={() => setNewOpen(true)}
+                        aria-label="Жаңы колдонуучу"
+                        title="Жаңы колдонуучу"
+                        disabled={!canAdmin}
+                        size="sm"
+                    >
+                        <Plus size={16} className="mr-1" />
+                    </Button>
+                )}
             </div>
 
             {/* Desktop header */}
             <div className="hidden md:flex items-center justify-between">
                 <h1 className="text-xl font-semibold">Админ панель — колдонуучулар</h1>
-                {me?.role !== 'sales' && me?.role !== 'assistant' && (<PrimaryButton onClick={() => setNewOpen(true)} disabled={!canAdmin}>
-                    <Plus size={16} className="mr-1" />
-                </PrimaryButton>)}
+                {me?.role !== 'sales' && me?.role !== 'assistant' && (
+                    <Button
+                        variant="primary"
+                        onClick={() => setNewOpen(true)}
+                        disabled={!canAdmin}
+                        aria-label="Жаңы колдонуучу"
+                    >
+                        <Plus size={16} className="mr-1" />
+                    </Button>
+                )}
             </div>
 
             {/* Filters (compact mobile, full md+) */}
@@ -315,7 +325,7 @@ export default function AdminPage() {
                                     value={typedQ}
                                     onChange={(e) => { setPage(1); setTypedQ(e.target.value); }}
                                     placeholder="Аты, email"
-                                    className="pr-12" // room for icons
+                                    className="pr-12"
                                 />
 
                                 {typedQ && (
@@ -325,8 +335,8 @@ export default function AdminPage() {
                                             aria-label="Тазалоо"
                                             onClick={() => { setTypedQ(''); setPage(1); }}
                                             className="flex items-center justify-center
-                                                text-gray-500 hover:text-gray-800 hover:bg-gray-100
-                                                leading-none"
+                        text-gray-500 hover:text-gray-800 hover:bg-gray-100
+                        leading-none"
                                         >
                                             ×
                                         </button>
@@ -427,49 +437,81 @@ export default function AdminPage() {
                                             <td className="whitespace-nowrap">
                                                 <div className="flex flex-wrap gap-2 items-center">
                                                     {canResendInvite(me?.role) && canResend(u) && (
-                                                        <GhostButton onClick={() => resendInviteByEmail(u.email)} aria-label="Чакыруу (кайра)" title="Чакыруу (кайра)">
+                                                        <Button
+                                                            variant="ghost"
+                                                            onClick={() => resendInviteByEmail(u.email)}
+                                                            aria-label="Чакыруу (кайра)"
+                                                            title="Чакыруу (кайра)"
+                                                        >
                                                             <RefreshCcw size={14} className="hidden md:inline ml-1 opacity-70" />
-                                                        </GhostButton>
+                                                        </Button>
                                                     )}
 
                                                     {u.inviteToken && (
-                                                        <SubtleButton onClick={() => copyInviteLink(u)} aria-label="Шилтемени көчүрүү" title="Шилтемени көчүрүү">
+                                                        <Button
+                                                            variant="subtle"
+                                                            onClick={() => copyInviteLink(u)}
+                                                            aria-label="Шилтемени көчүрүү"
+                                                            title="Шилтемени көчүрүү"
+                                                        >
                                                             <Copy size={16} />
-                                                        </SubtleButton>
+                                                        </Button>
                                                     )}
 
                                                     {canUpdateUser(me?.role) && (
-                                                        <GhostButton onClick={() => openEdit(u)} aria-label="Өзгөртүү" title="Өзгөртүү">
+                                                        <Button
+                                                            variant="ghost"
+                                                            onClick={() => openEdit(u)}
+                                                            aria-label="Өзгөртүү"
+                                                            title="Өзгөртүү"
+                                                        >
                                                             <Pencil size={16} />
-                                                        </GhostButton>
+                                                        </Button>
                                                     )}
 
                                                     {u.id !== me?.id && u.isActive && (
-                                                        <GhostButton onClick={() => openConfirm(u, false)} disabled={!allowed} aria-label="Өчүрүү" title={allowed ? 'Өчүрүү' : 'Уруксатыңыз жетишсиз'}>
+                                                        <Button
+                                                            variant="ghost"
+                                                            onClick={() => openConfirm(u, false)}
+                                                            disabled={!allowed}
+                                                            aria-label="Өчүрүү"
+                                                            title={allowed ? 'Өчүрүү' : 'Уруксатыңыз жетишсиз'}
+                                                        >
                                                             <PowerOff size={16} />
-                                                        </GhostButton>
+                                                        </Button>
                                                     )}
                                                     {u.id !== me?.id && !u.isActive && (
-                                                        <GhostButton onClick={() => openConfirm(u, true)} disabled={!allowed} aria-label="Активдештирүү" title={allowed ? 'Активдештирүү' : 'Уруксатыңыз жетишсиз'}>
+                                                        <Button
+                                                            variant="ghost"
+                                                            onClick={() => openConfirm(u, true)}
+                                                            disabled={!allowed}
+                                                            aria-label="Активдештирүү"
+                                                            title={allowed ? 'Активдештирүү' : 'Уруксатыңыз жетишсиз'}
+                                                        >
                                                             <Power size={16} />
-                                                        </GhostButton>
+                                                        </Button>
                                                     )}
 
                                                     {canSoftDelete(me?.role, u.role) && u.id !== me?.id && (
-                                                        <GhostButton
+                                                        <Button
+                                                            variant="danger"
                                                             onClick={() => openSoftDelete(u)}
                                                             aria-label="өчүрүү"
                                                             title="өчүрүү"
                                                         >
                                                             <Trash2 size={16} />
-                                                        </GhostButton>
+                                                        </Button>
                                                     )}
 
-
                                                     {canHardDelete(me?.role) && u.id !== me?.id && (
-                                                        <GhostButton onClick={() => openHardDelete(u)} aria-label="Катуу өчүрүү" title="Катуу өчүрүү (кайтарылбайт)">
+                                                        <Button
+                                                            variant="danger"
+                                                            onClick={() => openHardDelete(u)}
+                                                            aria-label="Катуу өчүрүү"
+                                                            title="Катуу өчүрүү (кайтарылбайт)"
+                                                        >
                                                             <Trash2 size={16} />
-                                                        </GhostButton>
+                                                        </Button>
                                                     )}
                                                 </div>
                                             </td>
@@ -484,25 +526,47 @@ export default function AdminPage() {
                     <div className="hidden md:flex items-center justify-between mt-3">
                         <div>Бет: {data?.page ?? 1} / {totalPages}</div>
                         <div className="flex gap-2">
-                            <button disabled={!canPrev} onClick={() => setPage(p => p - 1)} className="btn" aria-label="Мурунку бет" title="Мурунку бет">
+                            <Button
+                                variant="ghost"
+                                disabled={!canPrev}
+                                onClick={() => setPage(p => p - 1)}
+                                aria-label="Мурунку бет"
+                                title="Мурунку бет"
+                                size="sm"
+                            >
                                 <ChevronLeft size={16} />
-                            </button>
-                            <button disabled={!canNext} onClick={() => setPage(p => p + 1)} className="btn" aria-label="Кийинки бет" title="Кийинки бет">
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                disabled={!canNext}
+                                onClick={() => setPage(p => p + 1)}
+                                aria-label="Кийинки бет"
+                                title="Кийинки бет"
+                                size="sm"
+                            >
                                 <ChevronRight size={16} />
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </CardBody>
             </Card>
 
-            {/* Tablet & Mobile card grid (like ContactsPage) */}
+            {/* Tablet & Mobile card grid */}
             <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-2">
                 {loading && Array.from({ length: 6 }).map((_, i) => (
-                    <Card key={i}><CardBody><Skeleton className="h-16 w-full" /></CardBody></Card>
+                    <Card key={i}>
+                        <CardBody>
+                            <Skeleton className="h-16 w-full" />
+                        </CardBody>
+                    </Card>
                 ))}
 
                 {!loading && (data?.items?.length ?? 0) === 0 && (
-                    <Card><CardBody><div className="p-6 text-center text-gray-500">Колдонуучулар табылган жок</div></CardBody></Card>
+                    <Card>
+                        <CardBody>
+                            <div className="p-6 text-center text-gray-500">Колдонуучулар табылган жок</div>
+                        </CardBody>
+                    </Card>
                 )}
 
                 {data?.items?.map((u) => {
@@ -542,88 +606,102 @@ export default function AdminPage() {
                                 {/* Actions row (icon-only on mobile) */}
                                 <div className="mt-2 flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                     {canResendInvite(me?.role) && canResend(u) && (
-                                        <GhostButton
+                                        <Button
+                                            variant="ghost"
                                             onClick={() => resendInviteByEmail(u.email)}
                                             aria-label="Чакыруу (кайра)"
                                             title="Чакыруу (кайра)"
                                             className="px-2 py-1"
+                                            size="sm"
                                         >
                                             <Mail size={16} />
                                             <span className="hidden md:inline ml-1">Чакыруу</span>
                                             <RefreshCcw size={14} className="hidden md:inline ml-1 opacity-70" />
-                                        </GhostButton>
+                                        </Button>
                                     )}
 
                                     {u.inviteToken && (
-                                        <SubtleButton
+                                        <Button
+                                            variant="subtle"
                                             onClick={() => copyInviteLink(u)}
                                             aria-label="Шилтемени көчүрүү"
                                             title="Шилтемени көчүрүү"
                                             className="px-2 py-1"
+                                            size="sm"
                                         >
                                             <Copy size={16} />
                                             <span className="hidden md:inline ml-1">Көчүрүү</span>
-                                        </SubtleButton>
+                                        </Button>
                                     )}
 
                                     {canUpdateUser(me?.role) && (
-                                        <GhostButton
+                                        <Button
+                                            variant="ghost"
                                             onClick={() => openEdit(u)}
                                             aria-label="Өзгөртүү"
                                             title="Өзгөртүү"
                                             className="px-2 py-1"
+                                            size="sm"
                                         >
                                             <Pencil size={16} />
                                             <span className="hidden md:inline ml-1">Өзгөртүү</span>
-                                        </GhostButton>
+                                        </Button>
                                     )}
 
                                     {u.id !== me?.id && u.isActive && (
-                                        <GhostButton
+                                        <Button
+                                            variant="ghost"
                                             onClick={() => openConfirm(u, false)}
                                             disabled={!allowed}
                                             aria-label="Өчүрүү"
                                             title={allowed ? 'Өчүрүү' : 'Уруксатыңыз жетишсиз'}
                                             className="px-2 py-1"
+                                            size="sm"
                                         >
                                             <PowerOff size={16} />
                                             <span className="hidden md:inline ml-1">Өчүрүү</span>
-                                        </GhostButton>
+                                        </Button>
                                     )}
                                     {u.id !== me?.id && !u.isActive && (
-                                        <GhostButton
+                                        <Button
+                                            variant="ghost"
                                             onClick={() => openConfirm(u, true)}
                                             disabled={!allowed}
                                             aria-label="Активдештирүү"
                                             title={allowed ? 'Активдештирүү' : 'Уруксатыңыз жетишсиз'}
                                             className="px-2 py-1"
+                                            size="sm"
                                         >
                                             <Power size={16} />
                                             <span className="hidden md:inline ml-1">Активдештирүү</span>
-                                        </GhostButton>
+                                        </Button>
                                     )}
 
                                     {canSoftDelete(me?.role) && u.id !== me?.id && (
-                                        <GhostButton
+                                        <Button
+                                            variant="danger"
                                             onClick={() => openSoftDelete(u)}
                                             aria-label="өчүрүү"
                                             title="өчүрүү"
                                             className="px-2 py-1"
+                                            size="sm"
                                         >
                                             <Trash2 size={16} />
-                                        </GhostButton>
+                                        </Button>
                                     )}
 
                                     {canHardDelete(me?.role) && u.id !== me?.id && (
-                                        <GhostButton
+                                        <Button
+                                            variant="danger"
                                             onClick={() => openHardDelete(u)}
                                             aria-label="Катуу өчүрүү"
                                             title="Катуу өчүрүү (кайтарылбайт)"
                                             className="px-2 py-1"
+                                            size="sm"
                                         >
                                             <Trash2 size={16} />
                                             <span className="hidden md:inline ml-1">Катуу</span>
-                                        </GhostButton>
+                                        </Button>
                                     )}
                                 </div>
                             </CardBody>
@@ -633,13 +711,25 @@ export default function AdminPage() {
 
                 {/* Tablet/Mobile pagination */}
                 <div className="flex items-center justify-between py-2">
-                    <button disabled={!canPrev} onClick={() => setPage((p) => p - 1)} className="btn" aria-label="Мурунку бет">
+                    <Button
+                        variant="ghost"
+                        disabled={!canPrev}
+                        onClick={() => setPage((p) => p - 1)}
+                        aria-label="Мурунку бет"
+                        size="sm"
+                    >
                         <ChevronLeft size={16} />
-                    </button>
+                    </Button>
                     <div className="text-sm">Бет: {data?.page ?? 1} / {totalPages}</div>
-                    <button disabled={!canNext} onClick={() => setPage((p) => p + 1)} className="btn" aria-label="Кийинки бет">
+                    <Button
+                        variant="ghost"
+                        disabled={!canNext}
+                        onClick={() => setPage((p) => p + 1)}
+                        aria-label="Кийинки бет"
+                        size="sm"
+                    >
                         <ChevronRight size={16} />
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -710,7 +800,7 @@ export default function AdminPage() {
     );
 }
 
-/** Minimal confirmation modal (no external deps), Kyrgyz copy */
+/** Minimal confirmation modal (Kyrgyz copy) */
 function ConfirmModal({
     open,
     loading,
@@ -740,14 +830,24 @@ function ConfirmModal({
                 disabled={loading}
             />
             <div className="absolute inset-x-0 top-20 mx-auto max-w-md">
-                <div className="rounded-2xl border bg-white shadow-xl">
-                    <div className="px-4 py-3 border-b font-semibold">{title}</div>
-                    <div className="p-4 text-sm text-gray-800 whitespace-pre-line">{message}</div>
+                <div className="rounded-2xl border bg-white shadow-xl dark:bg-gray-900 dark:border-gray-800">
+                    <div className="px-4 py-3 border-b font-semibold dark:border-gray-800">{title}</div>
+                    <div className="p-4 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line">{message}</div>
                     <div className="px-4 pb-4 flex items-center justify-end gap-2">
-                        <GhostButton onClick={onClose} disabled={loading}>Жокко чыгаруу</GhostButton>
-                        <PrimaryButton onClick={onConfirm} disabled={loading}>
+                        <Button
+                            variant="ghost"
+                            onClick={onClose}
+                            disabled={loading}
+                        >
+                            {cancelLabel}
+                        </Button>
+                        <Button
+                            variant="primary"
+                            onClick={onConfirm}
+                            disabled={loading}
+                        >
                             {loading ? 'Иштеп жатат...' : confirmLabel}
-                        </PrimaryButton>
+                        </Button>
                     </div>
                 </div>
             </div>

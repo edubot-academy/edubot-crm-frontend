@@ -1,5 +1,5 @@
 import React from 'react';
-import { GhostButton, SubtleButton } from '@/components/ui/Button';
+import Button from '@/components/ui/Button';
 
 function openLink(href: string, newTab = false) {
     if (newTab) window.open(href, '_blank', 'noopener,noreferrer');
@@ -18,34 +18,53 @@ export default function QuickComms({
     onMark: () => void;
 }) {
     const phoneDigits = phone ? phone.replace(/\D/g, '') : '';
-    const doAndTrack = (fn: () => void) => { fn(); onOutreach(); };
+    const doAndTrack = (fn: () => void) => {
+        fn();
+        onOutreach();
+    };
 
     return (
         <div className="flex flex-wrap gap-2 text-gray-800 dark:text-gray-200">
             {phone && (
                 <>
-                    <GhostButton onClick={() => doAndTrack(() => openLink(`tel:${phone}`))}>
+                    <Button
+                        variant="ghost"
+                        onClick={() => doAndTrack(() => openLink(`tel:${phone}`))}
+                    >
                         Тел
-                    </GhostButton>
-                    <GhostButton onClick={() => doAndTrack(() => openLink(`https://wa.me/${phoneDigits}`, true))}>
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        onClick={() => doAndTrack(() => openLink(`https://wa.me/${phoneDigits}`, true))}
+                    >
                         WhatsApp
-                    </GhostButton>
-                    <GhostButton onClick={() => doAndTrack(() => openLink(`sms:${phone}`))}>
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        onClick={() => doAndTrack(() => openLink(`sms:${phone}`))}
+                    >
                         SMS
-                    </GhostButton>
+                    </Button>
                 </>
             )}
             {email && (
-                <GhostButton onClick={() => doAndTrack(() => openLink(`mailto:${email}`))}>
+                <Button
+                    variant="ghost"
+                    onClick={() => doAndTrack(() => openLink(`mailto:${email}`))}
+                >
                     Email
-                </GhostButton>
+                </Button>
             )}
-            <SubtleButton
-                onClick={() => { onMark(); onOutreach(); }}
+            <Button
+                variant="subtle"
+                onClick={() => {
+                    onMark();
+                    onOutreach();
+                }}
                 className="text-gray-700 dark:text-gray-100"
             >
                 “Акыркы байланыш — азыр”
-            </SubtleButton>
+            </Button>
         </div>
     );
 }

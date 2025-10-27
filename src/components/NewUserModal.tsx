@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
-import { PrimaryButton, GhostButton, SubtleButton } from '@/components/ui/Button';
+import Button from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import clsx from 'clsx';
@@ -96,34 +96,48 @@ export default function NewUserModal({ open, onClose, onCreated, currentUserRole
                 reset();
             }}
             title={success ? 'Чакыруу түзүлдү' : 'Жаңы колдонуучу кошуу'}
-            size="xl" // matches your previous max-w-xl
+            size="xl"
             footer={
                 !success ? (
                     <div className="flex items-center justify-end gap-2 w-full">
-                        <GhostButton
+                        <Button
                             type="button"
+                            variant="ghost"
                             onClick={() => {
                                 reset();
                                 onClose();
                             }}
                         >
                             Жокко чыгаруу
-                        </GhostButton>
-                        <PrimaryButton type="submit" form="new-user-form" disabled={isSubmitting}>
+                        </Button>
+                        <Button
+                            type="submit"
+                            form="new-user-form"
+                            variant="primary"
+                            loading={isSubmitting}
+                            disabled={isSubmitting}
+                            onClick={() => (document.activeElement as HTMLElement)?.blur()}
+                        >
                             {isSubmitting ? 'Жүктөлүүдө...' : 'Чакыруу жөнөтүү'}
-                        </PrimaryButton>
+                        </Button>
                     </div>
                 ) : (
                     <div className="flex items-center justify-end gap-2 w-full">
-                        <GhostButton onClick={() => setSuccess(null)}>Дагы кошуу</GhostButton>
-                        <PrimaryButton
+                        <Button
+                            variant="ghost"
+                            onClick={() => setSuccess(null)}
+                        >
+                            Дагы кошуу
+                        </Button>
+                        <Button
+                            variant="primary"
                             onClick={() => {
                                 reset();
                                 onClose();
                             }}
                         >
                             Жабуу
-                        </PrimaryButton>
+                        </Button>
                     </div>
                 )
             }
@@ -192,8 +206,18 @@ function SuccessInviteCard({ data }: { data: { userId: number; inviteLink: strin
                         value={data.inviteLink}
                         className="flex-1 text-xs rounded-xl border px-3 py-2 bg-white text-gray-900 placeholder-gray-400 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
                     />
-                    <SubtleButton onClick={() => copy(data.inviteLink)}>Көчүрүү</SubtleButton>
-                    <SubtleButton onClick={() => window.open(data.inviteLink, '_blank', 'noopener,noreferrer')}>Ачуy</SubtleButton>
+                    <Button
+                        variant="subtle"
+                        onClick={() => copy(data.inviteLink)}
+                    >
+                        Көчүрүү
+                    </Button>
+                    <Button
+                        variant="subtle"
+                        onClick={() => window.open(data.inviteLink, '_blank', 'noopener,noreferrer')}
+                    >
+                        Ачуy
+                    </Button>
                 </div>
             </Box>
 
@@ -204,7 +228,12 @@ function SuccessInviteCard({ data }: { data: { userId: number; inviteLink: strin
                         value={data.inviteToken}
                         className="flex-1 text-xs rounded-xl border px-3 py-2 bg-white text-gray-900 placeholder-gray-400 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
                     />
-                    <SubtleButton onClick={() => copy(data.inviteToken)}>Көчүрүү</SubtleButton>
+                    <Button
+                        variant="subtle"
+                        onClick={() => copy(data.inviteToken)}
+                    >
+                        Көчүрүү
+                    </Button>
                 </div>
             </Box>
         </div>
