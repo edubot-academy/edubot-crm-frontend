@@ -6,7 +6,7 @@ export default function FollowUpBanner({ next }: { next?: string | null }) {
             <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-gray-700
                       dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200">
                 Кийинки байланыш дайындала элек.
-                <button className="link ml-2">Дайында</button>
+                {/* <button className="link ml-2">Дайында</button> */}
             </div>
         );
     }

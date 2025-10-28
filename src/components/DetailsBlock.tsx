@@ -79,13 +79,10 @@ export default function DetailsBlock({ c }: { c: ContactLite }) {
                     <div className="grid md:grid-cols-2 gap-8 text-sm">
                         <dl className="grid grid-cols-2 gap-y-2 gap-x-8">
                             <dt className="text-gray-500 dark:text-gray-400">Лид ээси</dt>
-                            <dd className="text-gray-900 dark:text-gray-100">{c.ownerName || '—'}</dd>
+                            <dd className="text-gray-900 dark:text-gray-100">{c.createdByName || '—'}</dd>
 
                             <dt className="text-gray-500 dark:text-gray-400">Жооптуу</dt>
                             <dd className="text-gray-900 dark:text-gray-100">{c.assignedToName ? c.assignedToName : '—'}</dd>
-
-                            <dt className="text-gray-500 dark:text-gray-400">Ким түздү</dt>
-                            <dd className="text-gray-900 dark:text-gray-100">{c.createdByName ?? '—'}</dd>
 
                             <dt className="text-gray-500 dark:text-gray-400">Дубликаты</dt>
                             <dd className="text-gray-900 dark:text-gray-100">{c.duplicateOfId ?? '—'}</dd>

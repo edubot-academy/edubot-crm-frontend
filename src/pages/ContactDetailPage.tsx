@@ -7,14 +7,15 @@ import { currentUser } from '@/lib/auth';
 
 import ContactDetailSection, { ContactDetailCtx } from '@/components/ContactDetailSection';
 import type { Contact as ContactList } from './ContactsPage';
+import { NEXT_ALLOWED, PIPELINE, STATUS_LABELS, type S } from '@/lib/status';
+import type { Outcome } from '@/components/OutcomeSelect';
 
-// ---------- Types exported so DetailsBlock (component) can import ----------
+// ---------- Types ----------
 export type Contact = ContactList & {
     notes?: string | null;
     nextFollowUpAt?: string | null;
     priority?: number | null;
     tags?: string[] | null;
-    assignedToUserId?: number | null;
     consent?: boolean;
     courseName?: string | null;
     courseType?: 'campus' | 'online' | 'hybrid' | string | null;
@@ -29,53 +30,11 @@ export type Contact = ContactList & {
     contactAttempts?: number | null;
     lastAttemptAt?: string | null;
     ownerName?: string | null;
+    outcome?: Outcome | null;
+    outcomeDetail?: string | null;
 };
 
-type NoteItem = {
-    id: number;
-    body: string;
-    createdAt: string;
-    author?: { fullName?: string };
-};
-
-// ---------- Pipeline & labels ----------
-type S = ContactList['status'];
-
-const NEXT_ALLOWED: Record<S, S[]> = {
-    NEW: ['CONTACTED', 'RESPONDED', 'NO_RESPONSE', 'LOST', 'DUPLICATE', 'TEST'],
-    CONTACTED: ['RESPONDED', 'QUALIFIED', 'UNQUALIFIED', 'NO_RESPONSE', 'FOLLOW_UP', 'LOST'],
-    RESPONDED: ['QUALIFIED', 'UNQUALIFIED', 'FOLLOW_UP', 'NO_RESPONSE', 'LOST'],
-    QUALIFIED: ['PENDING_PAYMENT', 'FOLLOW_UP', 'LOST'],
-    UNQUALIFIED: ['ARCHIVED', 'FOLLOW_UP'],
-    FOLLOW_UP: ['RESPONDED', 'QUALIFIED', 'UNQUALIFIED', 'NO_RESPONSE', 'LOST'],
-    NO_RESPONSE: ['FOLLOW_UP', 'ARCHIVED', 'LOST'],
-    PENDING_PAYMENT: ['ENROLLED', 'DEFERRED', 'FOLLOW_UP', 'LOST'],
-    ENROLLED: ['ARCHIVED'],
-    DEFERRED: ['PENDING_PAYMENT', 'FOLLOW_UP', 'LOST'],
-    LOST: ['ARCHIVED', 'NEW'],
-    DUPLICATE: ['ARCHIVED'],
-    TEST: ['ARCHIVED'],
-    ARCHIVED: [],
-};
-
-const PIPELINE: S[] = ['NEW', 'CONTACTED', 'RESPONDED', 'NO_RESPONSE', 'QUALIFIED', 'PENDING_PAYMENT', 'ENROLLED'];
-
-const STATUS_LABELS: Record<S, string> = {
-    NEW: 'ЖАҢЫ',
-    CONTACTED: 'БАЙЛАНЫШТЫК',
-    RESPONDED: 'ЖООП БЕРДИ',
-    QUALIFIED: 'ТАТЫКТУУ',
-    UNQUALIFIED: 'ТАТЫКСЫЗ',
-    FOLLOW_UP: 'КАЙРА БАЙЛАНЫШ',
-    NO_RESPONSE: 'ЖООП ЖОК',
-    PENDING_PAYMENT: 'ТӨЛӨМ КҮТҮЛҮҮДӨ',
-    ENROLLED: 'КАТТАЛДЫ',
-    DEFERRED: 'КИЙИНГЕ ЖЫЛДЫРЫЛДЫ',
-    LOST: 'ЖОГОЛДУ',
-    DUPLICATE: 'ДУБЛИКАТ',
-    TEST: 'ТЕСТ',
-    ARCHIVED: 'АРХИВДЕЛДИ',
-};
+type NoteItem = { id: number; body: string; createdAt: string; author?: { fullName?: string } };
 
 // ---------- Time helpers ----------
 function toLocalInputValue(iso?: string | null) {
@@ -128,14 +87,15 @@ export default function ContactDetailPage() {
     const [nextFollowUpAt, setNextFollowUpAt] = useState<string>('');
     const [priority, setPriority] = useState<number>(1);
     const [tagsStr, setTagsStr] = useState<string>('');
-    const tagsArr = useMemo(
-        () => tagsStr.split(',').map(s => s.trim()).filter(Boolean),
-        [tagsStr]
-    );
+    const tagsArr = useMemo(() => tagsStr.split(',').map(s => s.trim()).filter(Boolean), [tagsStr]);
 
     // course
     const [courseName, setCourseName] = useState<string>('');
     const [courseType, setCourseType] = useState<'' | 'campus' | 'online' | 'hybrid'>('');
+
+    // outcomes
+    const [outcome, setOutcome] = useState<Outcome | undefined>(undefined);
+    const [outcomeDetail, setOutcomeDetail] = useState('');
 
     // notes
     const [noteText, setNoteText] = useState('');
@@ -153,6 +113,8 @@ export default function ContactDetailPage() {
         setTagsStr((data.tags ?? []).join(', '));
         setCourseName((data.courseName ?? '') as string);
         setCourseType(((data.courseType as any) ?? '') as any);
+        setOutcome((data.outcome ?? undefined) as any);
+        setOutcomeDetail((data.outcomeDetail ?? '') as string);
     };
 
     const load = useCallback(async () => {
@@ -181,41 +143,45 @@ export default function ContactDetailPage() {
     useEffect(() => { void load(); }, [load]);
     useEffect(() => { if (c?.id) void loadNotes(c.id); }, [c?.id, loadNotes]);
 
+    // Reset outcome when status changes to a non-outcome status
+    useEffect(() => {
+        if (!['UNQUALIFIED', 'LOST', 'ARCHIVED'].includes(status)) {
+            setOutcome(undefined);
+            setOutcomeDetail('');
+        }
+    }, [status]);
+
     const isDirty = useMemo(() => {
         if (!c) return false;
         const baseNext = toLocalInputValue(c.nextFollowUpAt);
         const baseTags = (c.tags ?? []).slice().map(s => s.trim()).filter(Boolean);
         const baseCourseName = c.courseName ?? '';
         const baseCourseType = (c.courseType ?? '') as string;
-
+        const needsOutcome = ['UNQUALIFIED', 'LOST', 'ARCHIVED'].includes(status);
         return (
             status !== c.status ||
             priority !== Math.max(1, Number(c.priority ?? 1)) ||
             nextFollowUpAt !== baseNext ||
             !eqArr(tagsArr, baseTags) ||
             courseName !== baseCourseName ||
-            (courseType || '') !== (baseCourseType || '')
+            (courseType || '') !== (baseCourseType || '') ||
+            (needsOutcome && (outcome !== (c.outcome ?? undefined) || (outcomeDetail ?? '') !== (c.outcomeDetail ?? '')))
         );
-    }, [c, status, priority, nextFollowUpAt, tagsArr, courseName, courseType]);
+    }, [c, status, priority, nextFollowUpAt, tagsArr, courseName, courseType, outcome, outcomeDetail]);
 
     const canSave = canEdit && editing && (isDirty || !!noteText.trim()) && !saving;
 
     const addNote = useCallback(async () => {
         if (!noteText.trim() || !c) return;
         const body = noteText.trim();
-
         const tempId = Math.random();
         const optimistic: NoteItem = { id: tempId, body, createdAt: new Date().toISOString(), author: { fullName: 'Сиз' } };
         setNoteItems(prev => [optimistic, ...prev]);
         setNoteText('');
-
         try {
             const { data } = await api.post(`/contacts/${c.id}/notes`, { body });
-            if (data && data.id) {
-                setNoteItems(prev => [data, ...prev.filter(n => n.id !== tempId)]);
-            } else {
-                await loadNotes(c.id);
-            }
+            if (data && data.id) setNoteItems(prev => [data, ...prev.filter(n => n.id !== tempId)]);
+            else await loadNotes(c.id);
         } catch (err) {
             setNoteItems(prev => prev.filter(n => n.id !== tempId));
             toast.push({ title: 'Ката', message: toKgError(err), variant: 'error' });
@@ -241,21 +207,29 @@ export default function ContactDetailPage() {
             if (courseName !== baseCourseName) payload.courseName = courseName.trim() ? courseName.trim() : null;
             if ((courseType || '') !== (baseCourseType || '')) payload.courseType = courseType || null;
 
+            // Outcomes when required
+            const needsOutcome = ['UNQUALIFIED', 'LOST', 'ARCHIVED'].includes(status);
+            if (needsOutcome) {
+                if (!outcome) {
+                    toast.push({ title: 'Ката', message: 'Жыйынтыкты тандаңыз.', variant: 'error' });
+                    setSaving(false); return;
+                }
+                payload.outcome = outcome;
+                if (outcomeDetail.trim()) payload.outcomeDetail = outcomeDetail.trim();
+                if (status === 'ARCHIVED' && outcome === 'DO_NOT_CONTACT') payload.nextFollowUpAt = null;
+            }
+
             if (Object.keys(payload).length > 0) await api.patch(`/contacts/${c.id}`, payload);
 
+            // Note (append-only)
             const pendingNote = noteText.trim();
             if (pendingNote) {
-                try {
-                    await api.post(`/contacts/${c.id}/notes`, { body: pendingNote });
-                    setNoteText('');
-                } catch {
-                    toast.push({ title: 'Эскертме сакталган жок', message: 'Калган өзгөртүүлөр сакталды.', variant: 'error' });
-                }
+                try { await api.post(`/contacts/${c.id}/notes`, { body: pendingNote }); setNoteText(''); }
+                catch { toast.push({ title: 'Эскертме сакталган жок', message: 'Калган өзгөртүүлөр сакталды.', variant: 'error' }); }
             }
 
             await load();
             if (c.id) await loadNotes(c.id);
-
             setEditing(false);
             toast.push({ title: 'OK', message: t.contacts.updateOk });
         } catch (err) {
@@ -263,7 +237,7 @@ export default function ContactDetailPage() {
         } finally {
             setSaving(false);
         }
-    }, [c, canEdit, status, priority, nextFollowUpAt, tagsArr, noteText, load, loadNotes, toast, courseName, courseType]);
+    }, [c, canEdit, status, priority, nextFollowUpAt, tagsArr, noteText, load, loadNotes, toast, courseName, courseType, outcome, outcomeDetail]);
 
     const cancel = useCallback(() => {
         if (!c) return;
@@ -346,12 +320,8 @@ export default function ContactDetailPage() {
         const arr = tagsArr.slice(); arr.splice(i, 1); setTagsStr(arr.join(', '));
     }
 
-    if (loading) {
-        return <div className="max-w-6xl mx-auto px-4 py-10 text-sm text-gray-500 dark:text-gray-400">Жүктөлүүдө...</div>;
-    }
-    if (!c) {
-        return <div className="max-w-6xl mx-auto px-4 py-10 text-gray-700 dark:text-gray-200">{t.contacts.empty}</div>;
-    }
+    if (loading) return <div className="max-w-6xl mx-auto px-4 py-10 text-sm text-gray-500 dark:text-gray-400">Жүктөлүүдө...</div>;
+    if (!c) return <div className="max-w-6xl mx-auto px-4 py-10 text-gray-700 dark:text-gray-200">{t.contacts.empty}</div>;
 
     const allowed = NEXT_ALLOWED[c.status] ?? [];
     const lastUpdateLabel = `Акыркы жаңыртуу: ${new Date(c.updatedAt || c.createdAt).toLocaleString()}`;
@@ -361,14 +331,10 @@ export default function ContactDetailPage() {
 
     const ctx: ContactDetailCtx = {
         navBack: () => nav(-1),
-        canEdit,
-        isSalesOrManager,
-        editing, setEditing,
+        canEdit, isSalesOrManager, editing, setEditing,
         c, attempts, lastUpdateLabel, lastContactedLabel, sourceDisplay,
-        PIPELINE: PIPELINE as unknown as string[],
-        NEXT_ALLOWED: NEXT_ALLOWED as unknown as Record<string, string[]>,
-        STATUS_LABELS: STATUS_LABELS as unknown as Record<string, string>,
-        status, setStatus: setStatus as any, primaryNext,
+        status, setStatus, primaryNext,
+        outcome, setOutcome, outcomeDetail, setOutcomeDetail,
         suggestNoResponse, suggestLost, setStatusViaBanner,
         tab, setTab,
         nextFollowUpAt, setNextFollowUpAt,
@@ -382,18 +348,9 @@ export default function ContactDetailPage() {
         t,
     };
 
-    // Page wrapper adopts dark text defaults like the login page
     return (
-        <div
-            className="
-    max-w-6xl w-full mx-auto
-    flex-1 min-w-0 shrink-0
-    space-y-5 pb-16 lg:px-4
-    text-gray-900 dark:text-gray-100
-  "
-        >
+        <div className="max-w-6xl w-full mx-auto flex-1 min-w-0 shrink-0 space-y-5 pb-16 lg:px-4 text-gray-900 dark:text-gray-100">
             <ContactDetailSection ctx={ctx} />
         </div>
-
     );
 }
