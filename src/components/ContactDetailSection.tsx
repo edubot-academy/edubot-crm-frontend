@@ -72,7 +72,8 @@ export type ContactDetailCtx = {
     noteText: string;
     setNoteText: (v: string) => void;
     addNote: () => void;
-
+    fullName: string;                 
+    setFullName: (v: string) => void;
     t: any;
 };
 
@@ -131,14 +132,27 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                         <ArrowLeft className="w-4 h-4" />
                     </Button>
                     <div className="h-9 w-9 md:h-10 md:w-10 rounded-full grid place-items-center font-semibold
-            bg-emerald-200 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200 dark:ring-1 dark:ring-emerald-800/50">
-                        {c.fullName?.[0] ?? 'U'}
+                        bg-emerald-200 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200 dark:ring-1 dark:ring-emerald-800/50">
+                        {(editing ? ctx.fullName : c.fullName)?.[0] ?? 'U'}
                     </div>
                     <div className="min-w-0">
-                        <h1 className="text-lg md:text-2xl font-semibold truncate">
+                        {editing && canEdit ? (
+                            <div className="flex items-center gap-2">
+                            <Input
+                                value={ctx.fullName}
+                                onChange={(e) => ctx.setFullName(e.target.value)}
+                                placeholder="Ат-жөнү"
+                                aria-label="Ат-жөнү"
+                                className="input h-9 md:h-10 text-base md:text-lg flex-1"
+                            />
+                            <span className="text-gray-400 dark:text-gray-500 font-mono shrink-0">#{c.id}</span>
+                            </div>
+                        ) : (
+                            <h1 className="text-lg md:text-2xl font-semibold truncate">
                             {c.fullName}{' '}
                             <span className="text-gray-400 dark:text-gray-500 font-mono">#{c.id}</span>
-                        </h1>
+                            </h1>
+                        )}
                         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs md:text-sm text-gray-600 dark:text-gray-300">
                             {c.email && (
                                 <span className="inline-flex items-center gap-1 max-w-[42vw] md:max-w-none truncate">

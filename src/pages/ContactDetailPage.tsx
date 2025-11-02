@@ -88,6 +88,7 @@ export default function ContactDetailPage() {
     const [priority, setPriority] = useState<number>(1);
     const [tagsStr, setTagsStr] = useState<string>('');
     const tagsArr = useMemo(() => tagsStr.split(',').map(s => s.trim()).filter(Boolean), [tagsStr]);
+    const [fullName, setFullName] = useState<string>('');
 
     // course
     const [courseName, setCourseName] = useState<string>('');
@@ -107,6 +108,7 @@ export default function ContactDetailPage() {
     };
 
     const hydrateFormFrom = (data: Contact) => {
+        setFullName((data.fullName ?? '') as string);
         setStatus(data.status as S);
         setPriority(Math.max(1, Number(data.priority ?? 1)));
         setNextFollowUpAt(toLocalInputValue(data.nextFollowUpAt));
@@ -159,7 +161,7 @@ export default function ContactDetailPage() {
         const baseCourseType = (c.courseType ?? '') as string;
         const needsOutcome = ['UNQUALIFIED', 'LOST', 'ARCHIVED'].includes(status);
         return (
-            status !== c.status ||
+            fullName !== (c.fullName ?? '') || status !== c.status ||
             priority !== Math.max(1, Number(c.priority ?? 1)) ||
             nextFollowUpAt !== baseNext ||
             !eqArr(tagsArr, baseTags) ||
@@ -167,9 +169,9 @@ export default function ContactDetailPage() {
             (courseType || '') !== (baseCourseType || '') ||
             (needsOutcome && (outcome !== (c.outcome ?? undefined) || (outcomeDetail ?? '') !== (c.outcomeDetail ?? '')))
         );
-    }, [c, status, priority, nextFollowUpAt, tagsArr, courseName, courseType, outcome, outcomeDetail]);
+    }, [c, fullName, status, priority, nextFollowUpAt, tagsArr, courseName, courseType, outcome, outcomeDetail]);
 
-    const canSave = canEdit && editing && (isDirty || !!noteText.trim()) && !saving;
+    const canSave = canEdit && editing && (isDirty || !!noteText.trim()) && !!fullName.trim() && !saving;
 
     const addNote = useCallback(async () => {
         if (!noteText.trim() || !c) return;
@@ -193,6 +195,15 @@ export default function ContactDetailPage() {
         setSaving(true);
         try {
             const payload: any = {};
+            const trimmedName = fullName.trim().replace(/\s+/g, ' ');
+            if (trimmedName !== (c.fullName ?? '')) {
+                if (!trimmedName) {
+                    toast.push({ title: 'Ката', message: 'Ат-жөнү бош болбошу керек.', variant: 'error' });
+                    setSaving(false);
+                    return;
+                }
+                payload.fullName = trimmedName;
+            }
             if (status !== c.status) payload.status = status;
             if (priority !== Math.max(1, Number(c.priority ?? 1))) payload.priority = priority;
 
@@ -237,7 +248,7 @@ export default function ContactDetailPage() {
         } finally {
             setSaving(false);
         }
-    }, [c, canEdit, status, priority, nextFollowUpAt, tagsArr, noteText, load, loadNotes, toast, courseName, courseType, outcome, outcomeDetail]);
+    }, [c, canEdit, fullName, status, priority, nextFollowUpAt, tagsArr, noteText, load, loadNotes, toast, courseName, courseType, outcome, outcomeDetail]);
 
     const cancel = useCallback(() => {
         if (!c) return;
@@ -345,6 +356,7 @@ export default function ContactDetailPage() {
         canSave, save, cancel, saving,
         onOutreach, markContactedNow, markRespondedNow, markNoResponse,
         noteItems, noteText, setNoteText, addNote,
+        fullName, setFullName,
         t,
     };
 

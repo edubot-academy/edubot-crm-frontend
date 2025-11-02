@@ -10,6 +10,7 @@ import AdminPage from '@/pages/admin/AdminPage';
 import RequireRole from '@/auth/RequireRole';
 import { UserRole } from '@/lib/constants/roles';
 import AcceptInvitePage from '@/pages/AcceptInvitePage';
+import NotificationsSettings from '@/pages/settings/NotificationsSettings';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const me = currentUser();
@@ -32,6 +33,7 @@ export default function App() {
                   <Route path="contacts" element={<ContactsPage />} />
                   <Route path="contacts/:id" element={<ContactDetailPage />} />
                   <Route path="accept-invite" element={<AcceptInvitePage />} />
+                  <Route path="settings/notifications" element={<NotificationsSettings />} />
                   <Route
                     path="/admin"
                     element={

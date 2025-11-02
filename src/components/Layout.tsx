@@ -82,6 +82,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <Users size={16} className="text-current" />
                     {t.nav.contacts}
                 </Link>
+                {me?.role === 'superadmin' && (
+                    <Link to="/notifications" className={navLinkClass(isActive('/notifications'))}>
+                        <Users size={16} className="text-current" />
+                        Уведомления
+                    </Link>
+                )}
                 {AdminLink}
             </nav>
             {/* Logout */}
