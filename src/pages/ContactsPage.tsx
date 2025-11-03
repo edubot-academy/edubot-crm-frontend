@@ -567,7 +567,12 @@ export default function ContactsPage() {
             )}
 
             {/* Modals */}
-            <NewLeadModal open={newOpen} onClose={() => setNewOpen(false)} onCreated={async () => { await load(); }} />
+            <NewLeadModal 
+                open={newOpen} 
+                onClose={() => setNewOpen(false)} 
+                onCreated={async () => { await load(); }} 
+                assignables={assignables}
+            />
 
             {/* Single delete */}
             <ConfirmDialog
