@@ -384,6 +384,7 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                             <Section title="Каржы (бул контакт)">
                                 <FinanceCard
                                     contactId={c.id}
+                                    contactStatus={c.status}
                                     onAddDeposit={() => setPayOpen('DEPOSIT')}
                                     onAddEnroll={() => setPayOpen('ENROLLMENT')}
                                     adminLink={`/admin/payments?contactId=${c.id}`}

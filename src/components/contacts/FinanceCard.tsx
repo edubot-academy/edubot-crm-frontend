@@ -6,11 +6,13 @@ import { currentUser } from '@/lib/auth';
 
 export default function FinanceCard({
   contactId,
+  contactStatus,
   onAddDeposit,
   onAddEnroll,
   adminLink,
 }: {
   contactId: number;
+  contactStatus?: string;
   onAddDeposit: () => void;
   onAddEnroll: () => void;
   adminLink: string; // e.g. `/admin/payments?contactId=123`
@@ -67,8 +69,15 @@ export default function FinanceCard({
       )}
 
       <div className="mt-3 flex gap-2">
-        <Button variant="ghost" size="sm" onClick={onAddDeposit}>Депозит кошуу</Button>
-        <Button variant="primary" size="sm" onClick={onAddEnroll}>Каттоо (төлөм)</Button>
+        <Button 
+            variant="ghost" 
+            disabled={contactStatus !== 'RESPONDED' && contactStatus !== "PENDING_PAYMENT" && contactStatus !== 'QUALIFIED'} 
+            size="sm" 
+            onClick={onAddDeposit}
+        >
+                Депозит кошуу
+        </Button>
+        <Button variant="primary" disabled={contactStatus !== 'PENDING_PAYMENT' && contactStatus !== 'ENROLLED'} size="sm" onClick={onAddEnroll}>Каттоо (төлөм)</Button>
       </div>
     </div>
   );
