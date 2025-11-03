@@ -33,7 +33,7 @@ export default function App() {
                   <Route path="contacts" element={<ContactsPage />} />
                   <Route path="contacts/:id" element={<ContactDetailPage />} />
                   <Route path="accept-invite" element={<AcceptInvitePage />} />
-                  <Route path="settings/notifications" element={<NotificationsSettings />} />
+                  <Route path="notifications" element={<NotificationsSettings />} />
                   <Route
                     path="/admin"
                     element={
