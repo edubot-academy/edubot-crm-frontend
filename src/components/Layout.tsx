@@ -88,6 +88,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         Уведомления
                     </Link>
                 )}
+                {(me?.role === 'superadmin' || me?.role === 'admin') && (
+                    <Link to="/payments" className={navLinkClass(isActive('/payments'))}>
+                        <Users size={16} className="text-current" />
+                        Төлөмдөр
+                    </Link>
+                )}
+                {(me?.role === 'superadmin' || me?.role === 'admin') && (
+                    <Link to="/payments/reports" className={navLinkClass(isActive('/payments/reports'))}>
+                        <Users size={16} className="text-current" />
+                        Төлөм отчеттору
+                    </Link>
+                )}
                 {AdminLink}
             </nav>
             {/* Logout */}

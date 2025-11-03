@@ -5,7 +5,7 @@ import { t } from '@/lib/i18n';
 import { useToast } from '@/components/ui/Toast';
 import { currentUser } from '@/lib/auth';
 
-import ContactDetailSection, { ContactDetailCtx } from '@/components/ContactDetailSection';
+import ContactDetailSection, { ContactDetailCtx } from '@/components/contacts/ContactDetailSection';
 import type { Contact as ContactList } from './ContactsPage';
 import { NEXT_ALLOWED, PIPELINE, STATUS_LABELS, type S } from '@/lib/status';
 import type { Outcome } from '@/components/OutcomeSelect';
@@ -358,6 +358,7 @@ export default function ContactDetailPage() {
         noteItems, noteText, setNoteText, addNote,
         fullName, setFullName,
         t,
+        reload: load,
     };
 
     return (

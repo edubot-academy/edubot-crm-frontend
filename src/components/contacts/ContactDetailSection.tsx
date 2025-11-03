@@ -8,12 +8,16 @@ import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/StatusBadge';
 import { Tabs } from '@/components/ui/Tabs';
-import FollowUpBanner from './FollowUpBanner';
-import QuickComms from './QuickComms';
-import DetailsBlock from './DetailsBlock';
+import FollowUpBanner from '../FollowUpBanner';
+import QuickComms from '../QuickComms';
+import DetailsBlock from '../DetailsBlock';
 import { getNextOptions, PIPELINE, STATUS_LABELS, type S, NEXT_ALLOWED } from '@/lib/status';
 import OutcomeSelect, { OUTCOME_LABEL, type Outcome } from '@/components/OutcomeSelect';
 import { currentUser } from '@/lib/auth';
+import FinanceCard from '@/components/contacts/FinanceCard';
+import PaymentModal from '@/components/payments/PaymentModal';
+import { addDeposit, addEnrollment } from '@/lib/api/payments';
+import { useToast } from '@/components/ui/Toast';
 
 // Context that parent owns (no API calls here)
 export type ContactDetailCtx = {
@@ -75,6 +79,7 @@ export type ContactDetailCtx = {
     fullName: string;                 
     setFullName: (v: string) => void;
     t: any;
+    reload: () => void | Promise<void>; 
 };
 
 export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx }) {
@@ -91,7 +96,12 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
         canSave, save, cancel, saving, onOutreach, markContactedNow, markRespondedNow, markNoResponse,
         noteItems, noteText, setNoteText, addNote,
         t,
+        reload
     } = ctx;
+
+    const toast = useToast();
+    const [payOpen, setPayOpen] = React.useState<null | ('DEPOSIT' | 'ENROLLMENT')>(null);
+    const [payLoading, setPayLoading] = React.useState(false);
 
     const me = currentUser();
     const nextOptions = React.useMemo<S[]>(
@@ -121,6 +131,29 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
         if (!editing) setExtraStatus('');
     }, [editing]);
 
+
+    const handlePaymentSubmit = React.useCallback(async (v: {
+        amount: string; currency: string; method: any; reference?: string; note?: string;
+        }) => {
+        if (!c) return;
+        setPayLoading(true);
+        try {
+            if (payOpen === 'DEPOSIT') {
+            await addDeposit({ contactId: c.id, ...v });
+            toast.push({ title: 'OK', message: 'Депозит кошулду.', variant: 'success' });
+            } else if (payOpen === 'ENROLLMENT') {
+            await addEnrollment({ contactId: c.id, ...v });
+            toast.push({ title: 'OK', message: 'Каттоо төлөмү кошулду.', variant: 'success' });
+            }
+            setPayOpen(null);
+            await reload(); // refresh header/summary if needed
+        } catch (e: any) {
+            const msg = e?.response?.data?.message ?? e?.message ?? 'Ката кетти.';
+            toast.push({ title: 'Ката', message: Array.isArray(msg) ? msg.join('\n') : String(msg), variant: 'error' });
+        } finally {
+            setPayLoading(false);
+        }
+    }, [c, payOpen, toast, ctx]);
 
     return (
         <div className="max-w-6xl w-full min-w-0 mx-auto space-y-5 pb-16 text-gray-900 dark:text-gray-100">
@@ -347,6 +380,15 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                 <div className="space-y-6">
                     {tab === 'overview' ? (
                         <>
+                            {/* Finance summary + quick actions */}
+                            <Section title="Каржы (бул контакт)">
+                                <FinanceCard
+                                    contactId={c.id}
+                                    onAddDeposit={() => setPayOpen('DEPOSIT')}
+                                    onAddEnroll={() => setPayOpen('ENROLLMENT')}
+                                    adminLink={`/admin/payments?contactId=${c.id}`}
+                                />
+                            </Section>
                             {/* Journey + Next */}
                             <Section title="ЖОЛ КАРТАНЫН АБАЛЫ">
                                 <div className="flex items-center justify-between gap-3 mb-4">
@@ -636,6 +678,13 @@ export default function ContactDetailSection({ ctx }: { ctx: ContactDetailCtx })
                     )}
                 </div>
             </div>
+            <PaymentModal
+                open={!!payOpen}
+                kind={payOpen || 'DEPOSIT'}
+                onClose={() => setPayOpen(null)}
+                onSubmit={handlePaymentSubmit}
+                loading={payLoading}
+            />
         </div >
     );
 }
