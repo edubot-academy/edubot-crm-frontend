@@ -37,7 +37,7 @@ export default function App() {
                   <Route path="accept-invite" element={<AcceptInvitePage />} />
                   <Route path="notifications" element={<NotificationsSettings />} />
                   <Route path="payments" element={<PaymentsPage />} />
-                  <Route path="payments/reports" element={<PaymentsReportsPage />} />
+                  <Route path="reports" element={<PaymentsReportsPage />} />
                   <Route
                     path="/admin"
                     element={

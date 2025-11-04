@@ -95,7 +95,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     </Link>
                 )}
                 {(me?.role === 'superadmin' || me?.role === 'admin') && (
-                    <Link to="/payments/reports" className={navLinkClass(isActive('/payments/reports'))}>
+                    <Link to="/reports" className={navLinkClass(isActive('/reports'))}>
                         <Users size={16} className="text-current" />
                         Төлөм отчеттору
                     </Link>

@@ -6,11 +6,13 @@ export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER' | 'WALLET';
 
 export type Payment = {
     id: number;
-    companyId?: number;
+    companyId?: number | null;
     contactId: number;
     createdByUserId: number;
-    amount: string;          // NUMERIC as string
-    currency: string;        // e.g., KGS
+    createdByName?: string | null;
+    contactName?: string | null;
+    amount: string | number;       // backend may return numeric as string; we `Number()` in UI
+    currency: string;
     kind: PaymentKind;
     method: PaymentMethod;
     reference?: string | null;
@@ -32,18 +34,35 @@ export async function addEnrollment(p: {
     return data as Payment;
 }
 
+
+
 export async function listPayments(params: {
-    page?: number; limit?: number; contactId?: number; kind?: PaymentKind; dateFrom?: string; dateTo?: string;
+    page?: number;
+    limit?: number;
+    dateFrom?: string;     // ISO
+    dateTo?: string;       // ISO
+    kind?: PaymentKind;
+    contactId?: number;
+    actorId?: number;
+    search?: string;       // NEW: unified free-text search
 }) {
     const { data } = await api.get<{
-        items: Payment[]; total: number; page: number; limit: number; totalPages: number;
+        items: Payment[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
     }>('/payments', { params });
     return data;
 }
 
 // Contact-focused convenience
 export async function listPaymentsForContact(contactId: number, limit = 50) {
-    return listPayments({ contactId, page: 1, limit });
+    return listPayments({
+        page: 1,
+        limit,
+        contactId,
+    });
 }
 
 // Reports

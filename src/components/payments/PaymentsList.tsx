@@ -78,7 +78,7 @@ export default function PaymentsList({
                 </td>
                 <td className="px-3 py-2 text-sm">
                   {p.method === 'CASH' ? 'Накталай' : p.method === 'CARD' ? 'Карта' :
-                   p.method === 'TRANSFER' ? 'Котуруу' : 'Э-капчык'}
+                   p.method === 'TRANSFER' ? 'Котoруу' : 'Э-капчык'}
                 </td>
                 <td className="px-3 py-2 text-sm">{p.reference || '—'}</td>
                 <td className="px-3 py-2 text-sm">{p.note || '—'}</td>
